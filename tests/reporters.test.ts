@@ -32,5 +32,7 @@ describe("reporters", () => {
     expect(html).toContain("#f7f4ed");
     expect(html).toContain("Download HTML report");
     expect(html).toContain("Capture screenshots");
+    expect(html).toContain("Pages tested");
+    expect(html).toContain("zero automated axe-core findings");
   });
 });

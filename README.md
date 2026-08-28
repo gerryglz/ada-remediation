@@ -25,7 +25,7 @@ This is the easiest way to test a website when you have its URL.
 1. Start the dashboard:
 
    ```bash
-   node dist/cli.js ui
+   npm run ui
    ```
 
 2. Open [http://127.0.0.1:4173](http://127.0.0.1:4173) in your browser.
@@ -43,6 +43,46 @@ This is the easiest way to test a website when you have its URL.
 9. Press `Ctrl+C` in the terminal when you are finished to stop the dashboard.
 
 The dashboard runs locally on your computer and binds to `127.0.0.1` by default. It does not upload reports or screenshots to an external service. Screenshots can contain visible page information, including information from authenticated pages, so review them before sharing.
+
+`npm run ui` rebuilds the current source before starting the server. Use it after every pull so you do not accidentally run an older copy from `dist/`.
+
+## Restart the visual dashboard
+
+1. Return to the terminal where the dashboard is running.
+2. Press `Ctrl+C` once and wait for the command prompt to return.
+3. From the project directory, update dependencies and restart with a fresh build:
+
+   ```bash
+   npm install
+   npx playwright install chromium
+   npm run ui
+   ```
+
+4. Reload [http://127.0.0.1:4173](http://127.0.0.1:4173) in the browser.
+
+If port 4173 is still occupied or you cannot find the earlier terminal, start the dashboard on another port:
+
+```bash
+npm run ui -- --port 4174
+```
+
+Then open [http://127.0.0.1:4174](http://127.0.0.1:4174).
+
+## Understand a result of zero
+
+Check **Pages tested** before interpreting zero findings:
+
+- **Pages tested is 1 or more, Findings is 0:** the completed axe-core scan did not detect an automated violation. This is a valid result, but manual accessibility testing is still required.
+- **Pages tested is 0:** the page did not complete. Read the **Incomplete pages** message for the network, timeout, browser, or navigation error. Do not treat this as a clean accessibility result.
+- **The UI does not show Pages tested:** you are probably running an older compiled dashboard. Stop it and restart with `npm run ui`.
+
+For a simpler diagnostic without screenshots, run:
+
+```bash
+node dist/cli.js scan-url https://www.michiganbusiness.org/ --no-screenshots
+```
+
+The terminal will list findings or explain why the page was incomplete.
 
 ## Choose how to test a website
 
