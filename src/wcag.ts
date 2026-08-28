@@ -1,5 +1,7 @@
 const BASE_URL = "https://www.w3.org/WAI/WCAG22/Understanding/";
 
+export const WCAG_VERSION = "2.2";
+
 export const WCAG_UNDERSTANDING_URLS: Readonly<Record<string, string>> = Object.freeze({
   "1.1.1": `${BASE_URL}non-text-content.html`,
   "1.2.1": `${BASE_URL}audio-only-and-video-only-prerecorded.html`,
@@ -92,4 +94,8 @@ export const WCAG_UNDERSTANDING_URLS: Readonly<Record<string, string>> = Object.
 
 export function wcagUnderstandingUrl(criterion: string): string {
   return WCAG_UNDERSTANDING_URLS[criterion] ?? BASE_URL;
+}
+
+export function wcagCriterionLabel(criterion: string): string {
+  return `WCAG ${WCAG_VERSION} · Section ${criterion}`;
 }

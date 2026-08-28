@@ -34,7 +34,7 @@ This is the easiest way to test a website when you have its URL.
 5. Select **Crawl same-origin pages** only when you want more than the supplied page and are authorized to crawl the site.
 6. Click **Scan page**.
 7. Review the severity totals, filter the findings, and select one from the **Finding list**. The review workspace separates the result into clearly labeled sections:
-   - **Finding summary** explains priority and detection confidence, links each WCAG requirement to its exact W3C Understanding page, and labels Deque separately as axe scanner documentation
+   - **Finding summary** explains priority and detection confidence, labels requirements as **WCAG 2.2 · Section X.X.X**, links each one to its exact W3C Understanding page, and labels Deque separately as axe scanner documentation
    - **Where it was found** provides clickable source-page links and the affected CSS selector
    - **Visual evidence** shows a compact screenshot thumbnail that opens into a near-full-window view
    - **Why this was flagged** separates the rule purpose from the specific failed check
@@ -46,7 +46,7 @@ This is the easiest way to test a website when you have its URL.
 
 The dashboard runs locally on your computer and binds to `127.0.0.1` by default. It does not upload reports or screenshots to an external service. Screenshots can contain visible page information, including information from authenticated pages, so review them before sharing.
 
-The results area uses a dashboard layout: select an item from the **Finding list** to open its detailed review workspace. Click the compact screenshot thumbnail to open an almost full-window view, then use **Close** or the Escape key to return. Before/after examples are starting points, not automatic fixes. Replace bracketed placeholders, consider the listed alternative, review the surrounding code, and retest the page before accepting a change.
+The results area uses a dashboard layout: select an item from the **Finding list** to open its detailed review workspace. Plum and cornflower accents identify priority and standards information, while a visible divider separates every review section. Click the compact screenshot thumbnail to open an almost full-window view, then use **Close** or the Escape key to return. Before/after examples are starting points, not automatic fixes. Replace bracketed placeholders, consider the listed alternative, review the surrounding code, and retest the page before accepting a change.
 
 W3C is presented as the primary accessibility standards source. Deque links are secondary and explain the axe-core rule that produced an automated finding; they do not replace the linked WCAG requirement.
 

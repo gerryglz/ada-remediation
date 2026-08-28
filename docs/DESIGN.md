@@ -42,6 +42,13 @@ What makes Lovable's visual system distinctive is its opacity-driven depth model
 - **Ring Blue** (`#3b82f6` at 50% opacity): `--tw-ring-color`, Tailwind focus ring.
 - **Focus Shadow** (`rgba(0,0,0,0.1) 0px 4px 12px`): Focus and active state shadow — soft, warm, diffused.
 
+### Dashboard accents
+- **Plum** (`#ab307e`): Critical-priority badges, selected-item emphasis, and the leading edge of section dividers. Use with `#fcfbf8` text; this pairing has sufficient contrast for small badge labels.
+- **Cornflower Blue** (`#6495ED`): Standards-card borders, focus rings, and informational accents. Use dark `#1c1c1c` text on this color; do not use small white text on it.
+- **Soft Plum** (`rgba(171,48,126,0.10)`): Optional background tint for priority-related surfaces.
+- **Soft Cornflower** (`rgba(100,149,237,0.14)`): WCAG cards, selected findings, and moderate-priority badges with dark text.
+- **Section divider**: A 2px line that moves from plum to cornflower blue and then into the neutral border color. It separates review steps without turning each section into a heavy card.
+
 ### Inset Shadows
 - **Button Inset** (`rgba(255,255,255,0.2) 0px 0.5px 0px 0px inset, rgba(0,0,0,0.2) 0px 0px 0px 0.5px inset, rgba(0,0,0,0.05) 0px 1px 2px 0px`): The signature multi-layer inset shadow on dark buttons.
 
@@ -229,7 +236,7 @@ What makes Lovable's visual system distinctive is its opacity-driven depth model
 ### Don't
 - Don't use pure white (`#ffffff`) as a page background — the cream is intentional
 - Don't use heavy box-shadows for cards — borders are the containment mechanism
-- Don't introduce saturated accent colors — the palette is intentionally warm-neutral
+- Don't use accent colors as decoration without meaning. Reserve plum for priority/selection and cornflower blue for standards, focus, and informational context.
 - Don't use weight 700 (bold) — 600 is the maximum weight in the system
 - Don't apply 9999px radius on rectangular buttons — pills are for icon/action toggles
 - Don't use sharp focus outlines — the system uses soft shadow-based focus indicators
