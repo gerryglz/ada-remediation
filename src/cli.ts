@@ -10,6 +10,7 @@ import { renderReport, writeReport, type ReportFormat } from "./reporters/index.
 import { scanRepository } from "./scanners/repository.js";
 import { scanUrls } from "./scanners/url.js";
 import type { ScanResult, Severity } from "./types.js";
+import { startUiServer } from "./ui/server.js";
 import { hasFindingsAtOrAbove, TOOL_VERSION } from "./utils.js";
 
 const formats = new Set<ReportFormat>(["terminal", "json", "html", "sarif"]);
@@ -76,9 +77,17 @@ addOutputOptions(
     .description("scan one or more rendered URLs with Playwright and axe-core")
     .argument("<urls...>", "URLs to scan")
     .option("--timeout <milliseconds>", "navigation timeout", (value) => Number.parseInt(value, 10), 30_000)
-    .option("--storage-state <file>", "Playwright storage state for an authenticated session"),
-).action(async (urls: string[], options: OutputOptions & { timeout: number; storageState?: string }) => {
-  await finishScan(await scanUrls(urls, { timeout: options.timeout, storageState: options.storageState }), options);
+    .option("--storage-state <file>", "Playwright storage state for an authenticated session")
+    .option("--no-screenshots", "do not capture highlighted viewport screenshots"),
+).action(async (urls: string[], options: OutputOptions & { timeout: number; storageState?: string; screenshots: boolean }) => {
+  await finishScan(
+    await scanUrls(urls, {
+      timeout: options.timeout,
+      storageState: options.storageState,
+      captureScreenshots: options.screenshots,
+    }),
+    options,
+  );
 });
 
 addOutputOptions(
@@ -88,18 +97,30 @@ addOutputOptions(
     .argument("<url>", "starting URL")
     .option("--max-pages <count>", "maximum pages to scan", (value) => Number.parseInt(value, 10), 25)
     .option("--timeout <milliseconds>", "navigation timeout", (value) => Number.parseInt(value, 10), 30_000)
-    .option("--storage-state <file>", "Playwright storage state for an authenticated session"),
-).action(async (url: string, options: OutputOptions & { maxPages: number; timeout: number; storageState?: string }) => {
+    .option("--storage-state <file>", "Playwright storage state for an authenticated session")
+    .option("--no-screenshots", "do not capture highlighted viewport screenshots"),
+).action(async (url: string, options: OutputOptions & { maxPages: number; timeout: number; storageState?: string; screenshots: boolean }) => {
   await finishScan(
     await scanUrls([url], {
       crawl: true,
       maxPages: options.maxPages,
       timeout: options.timeout,
       storageState: options.storageState,
+      captureScreenshots: options.screenshots,
     }),
     options,
   );
 });
+
+program
+  .command("ui")
+  .description("start the local website scanning and reporting dashboard")
+  .option("--port <number>", "local dashboard port", (value) => Number.parseInt(value, 10), 4173)
+  .option("--host <address>", "listen address", "127.0.0.1")
+  .action(async (options: { port: number; host: string }) => {
+    const handle = await startUiServer({ port: options.port, host: options.host });
+    process.stdout.write(`ADA Assistant dashboard is running at ${handle.url}\nPress Ctrl+C to stop it.\n`);
+  });
 
 program
   .command("report")

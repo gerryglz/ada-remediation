@@ -46,27 +46,43 @@ export function jsonReport(result: ScanResult): string {
 
 function findingCard(finding: Finding): string {
   const wcag = finding.wcag.length ? finding.wcag.join(", ") : "Not mapped";
+  const source = finding.location.url
+    ? `<a href="${escapeHtml(finding.location.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(finding.location.pageTitle || finding.location.url)}</a>`
+    : escapeHtml(locationText(finding));
+  const selector = finding.location.selector ? `<code>${escapeHtml(finding.location.selector)}</code>` : "";
+  const screenshot = finding.screenshot?.dataUrl.startsWith("data:image/")
+    ? `<figure><img src="${finding.screenshot.dataUrl}" alt="${escapeHtml(finding.screenshot.description)}" loading="lazy"><figcaption>${escapeHtml(finding.screenshot.description)}</figcaption></figure>`
+    : "";
   return `<article class="finding" data-severity="${finding.severity}">
     <div class="finding-title"><span class="badge ${finding.severity}">${finding.severity}</span><h2>${escapeHtml(finding.title)}</h2></div>
-    <p class="location">${escapeHtml(locationText(finding))}</p>
-    <dl><dt>Rule</dt><dd>${escapeHtml(finding.ruleId)}</dd><dt>WCAG</dt><dd>${escapeHtml(wcag)}</dd><dt>Impact</dt><dd>${escapeHtml(finding.impact)}</dd><dt>Remediation</dt><dd>${escapeHtml(finding.remediation)}</dd></dl>
-    <details><summary>Evidence</summary><pre>${escapeHtml(finding.evidence)}</pre></details>
+    <p class="location">${source}${selector ? ` <span aria-hidden="true">·</span> ${selector}` : ""}</p>
+    <div class="finding-grid${screenshot ? "" : " no-image"}"><div><dl><dt>Rule</dt><dd>${escapeHtml(finding.ruleId)}</dd><dt>WCAG</dt><dd>${escapeHtml(wcag)}</dd><dt>Impact</dt><dd>${escapeHtml(finding.impact)}</dd><dt>Potential solution</dt><dd>${escapeHtml(finding.remediation)}</dd></dl>
+    <details><summary>HTML evidence</summary><pre>${escapeHtml(finding.evidence)}</pre></details>
     ${finding.safeFix ? `<p class="safe-fix">Safe fix: ${escapeHtml(finding.safeFix.description)}</p>` : ""}
+    </div>${screenshot}</div>
   </article>`;
 }
 
 export function htmlReport(result: ScanResult): string {
-  const payload = JSON.stringify(result.findings.map((finding) => finding.severity));
+  const counts = result.findings.reduce<Record<Severity, number>>(
+    (summary, finding) => ({ ...summary, [finding.severity]: summary[finding.severity] + 1 }),
+    { critical: 0, serious: 0, moderate: 0, minor: 0 },
+  );
+  const incomplete = result.metadata.incomplete?.length
+    ? `<section class="notice"><strong>Incomplete pages</strong><ul>${result.metadata.incomplete.map((item) => `<li>${escapeHtml(item.url)} — ${escapeHtml(item.reason)}</li>`).join("")}</ul></section>`
+    : "";
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Accessibility report</title>
 <style>
-:root{font-family:system-ui,sans-serif;color:#17202a;background:#f5f7f9}body{max-width:1100px;margin:auto;padding:2rem}header,.finding{background:#fff;border:1px solid #dce2e8;border-radius:.75rem;padding:1.25rem;margin-bottom:1rem}.notice{border-left:5px solid #8a5a00;padding:.8rem;background:#fff8e6}.filters{display:flex;gap:.5rem;flex-wrap:wrap;margin:1rem 0}.filters button{padding:.55rem .8rem;border:1px solid #75808b;background:white;border-radius:.35rem;cursor:pointer}.filters button:focus{outline:3px solid #1769aa;outline-offset:2px}.finding-title{display:flex;align-items:center;gap:.75rem}.finding h2{font-size:1.15rem;margin:0}.badge{font-size:.75rem;font-weight:700;text-transform:uppercase;padding:.25rem .45rem;border-radius:.25rem}.critical{background:#7b1420;color:#fff}.serious{background:#b23b00;color:#fff}.moderate{background:#ffd166;color:#302500}.minor{background:#dbe7f3;color:#17202a}.location{font-family:monospace;overflow-wrap:anywhere}dt{font-weight:700;margin-top:.7rem}dd{margin-left:0}pre{white-space:pre-wrap;background:#111827;color:#f9fafb;padding:1rem;border-radius:.35rem;overflow:auto}.safe-fix{border-left:4px solid #138a4b;padding-left:.75rem}.hidden{display:none}</style></head>
-<body><header><h1>Accessibility report</h1><p><strong>Target:</strong> ${escapeHtml(result.metadata.target)}</p><p><strong>Scanned:</strong> ${result.metadata.pagesOrFilesScanned} &nbsp; <strong>Findings:</strong> ${result.findings.length}</p></header>
+:root{font-family:"Camera Plain Variable",ui-sans-serif,system-ui,sans-serif;color:#1c1c1c;background:#f7f4ed;line-height:1.5;--ink:#1c1c1c;--muted:#5f5f5d;--border:#eceae4;--cream:#f7f4ed;--off-white:#fcfbf8}*{box-sizing:border-box}body{max-width:1200px;margin:auto;padding:64px 24px 96px;background:var(--cream)}header{margin-bottom:48px}header .eyebrow{color:var(--muted);font-size:.875rem}h1{font-size:clamp(2.25rem,6vw,3.75rem);font-weight:600;line-height:1.03;letter-spacing:-1.5px;margin:.5rem 0 1rem}.target{font-size:1.13rem;color:rgba(28,28,28,.82);overflow-wrap:anywhere}.target a,.location a{color:var(--ink);text-decoration:underline}.summary{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:12px;margin:32px 0}.metric{border:1px solid var(--border);border-radius:12px;padding:18px;background:rgba(28,28,28,.03)}.metric strong{display:block;font-size:3rem;font-weight:600;letter-spacing:-1.2px;line-height:1}.metric span{color:var(--muted);font-size:.875rem}.notice{border:1px solid var(--border);padding:12px 15px;background:rgba(28,28,28,.03);border-radius:8px;color:rgba(28,28,28,.82)}.filters{display:flex;gap:8px;flex-wrap:wrap;margin:32px 0 24px}.filters button{padding:8px 16px;border:1px solid rgba(28,28,28,.4);background:transparent;color:var(--ink);border-radius:9999px;cursor:pointer;font:inherit}.filters button[aria-pressed=true]{background:var(--ink);color:var(--off-white)}button:focus,a:focus{outline:0;box-shadow:0 0 0 2px rgba(59,130,246,.5),rgba(0,0,0,.1) 0 4px 12px}.finding{border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px}.finding-title{display:flex;align-items:center;gap:10px}.finding h2{font-size:1.25rem;font-weight:400;line-height:1.25;margin:0}.badge{font-size:.72rem;font-weight:600;text-transform:uppercase;padding:4px 8px;border-radius:9999px;color:var(--off-white);background:rgba(28,28,28,.4)}.badge.critical{background:var(--ink)}.badge.serious{background:rgba(28,28,28,.83)}.badge.moderate{background:rgba(28,28,28,.4);color:var(--ink)}.badge.minor{background:rgba(28,28,28,.04);color:var(--ink);border:1px solid var(--border)}.location{font-size:.875rem;color:var(--muted);overflow-wrap:anywhere}.location code{background:rgba(28,28,28,.04);padding:3px 6px;border-radius:4px}.finding-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,45%);gap:24px}.finding-grid.no-image{grid-template-columns:1fr}dt{font-weight:600;margin-top:14px}dd{margin-left:0;color:rgba(28,28,28,.82);white-space:pre-wrap}summary{cursor:pointer;font-weight:600;margin:16px 0 8px}pre{white-space:pre-wrap;background:var(--ink);color:var(--off-white);padding:14px;border-radius:8px;overflow:auto;font-size:.82rem}figure{margin:14px 0 0}figure img{display:block;width:100%;height:auto;border:1px solid var(--border);border-radius:12px}figcaption{font-size:.875rem;color:var(--muted);margin-top:8px}.safe-fix{border-left:3px solid var(--ink);padding-left:.75rem}.hidden{display:none}@media(max-width:800px){.summary{grid-template-columns:repeat(2,1fr)}.finding-grid{grid-template-columns:1fr}}@media(max-width:600px){body{padding:40px 14px}h1{font-size:2.25rem;letter-spacing:-.9px}.metric strong{font-size:2.25rem}}</style></head>
+<body><header><div class="eyebrow">ADA Assistant · Accessibility report</div><h1>Findings in context.</h1><p class="target"><strong>Internet source:</strong> ${result.metadata.target.startsWith("http") ? `<a href="${escapeHtml(result.metadata.target)}" target="_blank" rel="noopener noreferrer">${escapeHtml(result.metadata.target)}</a>` : escapeHtml(result.metadata.target)}</p><p>Scanned ${result.metadata.pagesOrFilesScanned} page(s). Generated ${escapeHtml(result.metadata.completedAt)}.</p></header>
+<section class="summary" aria-label="Finding totals"><div class="metric"><strong>${result.findings.length}</strong><span>Findings</span></div><div class="metric"><strong>${counts.critical}</strong><span>Critical</span></div><div class="metric"><strong>${counts.serious}</strong><span>Serious</span></div><div class="metric"><strong>${counts.moderate}</strong><span>Moderate</span></div><div class="metric"><strong>${counts.minor}</strong><span>Minor</span></div></section>
 <p class="notice">${escapeHtml(result.notice)}</p>
-<nav class="filters" aria-label="Filter findings"><button data-filter="all">All</button><button data-filter="critical">Critical</button><button data-filter="serious">Serious</button><button data-filter="moderate">Moderate</button><button data-filter="minor">Minor</button></nav>
+${incomplete}
+<nav class="filters" aria-label="Filter findings"><button data-filter="all" aria-pressed="true">All</button><button data-filter="critical" aria-pressed="false">Critical</button><button data-filter="serious" aria-pressed="false">Serious</button><button data-filter="moderate" aria-pressed="false">Moderate</button><button data-filter="minor" aria-pressed="false">Minor</button></nav>
 <main>${result.findings.map(findingCard).join("\n") || "<p>No automated findings were detected. Manual testing is still required.</p>"}</main>
-<script>const severities=${payload};document.querySelectorAll('[data-filter]').forEach(button=>button.addEventListener('click',()=>{const filter=button.dataset.filter;document.querySelectorAll('.finding').forEach(card=>card.classList.toggle('hidden',filter!=='all'&&card.dataset.severity!==filter));}));</script></body></html>`;
+<script>document.querySelectorAll('[data-filter]').forEach(button=>button.addEventListener('click',()=>{const filter=button.dataset.filter;document.querySelectorAll('[data-filter]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));document.querySelectorAll('.finding').forEach(card=>card.classList.toggle('hidden',filter!=='all'&&card.dataset.severity!==filter));}));</script></body></html>`;
 }
 
 export function sarifReport(result: ScanResult): string {

@@ -18,6 +18,32 @@ npm run build
 
 The examples below use `node dist/cli.js`, which works directly from a built checkout. If you want the shorter `ada-assistant` command, run `npm link` once and substitute `ada-assistant` for `node dist/cli.js` in any example.
 
+## Start here: use the visual dashboard
+
+This is the easiest way to test a website when you have its URL.
+
+1. Start the dashboard:
+
+   ```bash
+   node dist/cli.js ui
+   ```
+
+2. Open [http://127.0.0.1:4173](http://127.0.0.1:4173) in your browser.
+3. Paste a complete website URL, such as `https://www.michiganbusiness.org/`.
+4. Leave **Capture screenshots** selected if you want visual evidence.
+5. Select **Crawl same-origin pages** only when you want more than the supplied page and are authorized to crawl the site.
+6. Click **Scan page**.
+7. Review the severity totals and filter the findings. Each finding can include:
+   - a link to the internet source page
+   - the CSS selector that identifies the affected element
+   - the HTML that triggered the finding
+   - the user impact and potential solution
+   - a viewport screenshot with the affected element outlined in charcoal
+8. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report.
+9. Press `Ctrl+C` in the terminal when you are finished to stop the dashboard.
+
+The dashboard runs locally on your computer and binds to `127.0.0.1` by default. It does not upload reports or screenshots to an external service. Screenshots can contain visible page information, including information from authenticated pages, so review them before sharing.
+
 ## Choose how to test a website
 
 | What you have | Testing method | Use this command |
@@ -85,6 +111,12 @@ Use this when you need the rendered accessibility state of one specific page.
 
 ```bash
 node dist/cli.js scan-url https://example.com/contact
+```
+
+Rendered URL scans capture highlighted viewport screenshots by default. Add `--no-screenshots` when visual evidence is unnecessary or the page may display sensitive information:
+
+```bash
+node dist/cli.js scan-url https://example.com/account --no-screenshots
 ```
 
 ## Testing method 4: scan several known webpages

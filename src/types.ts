@@ -5,9 +5,19 @@ export type FindingKind = "automatic" | "manual-review";
 export interface SourceLocation {
   file?: string;
   url?: string;
+  pageTitle?: string;
   line?: number;
   column?: number;
   selector?: string;
+}
+
+export interface VisualEvidence {
+  dataUrl: string;
+  mimeType: "image/jpeg" | "image/png";
+  width: number;
+  height: number;
+  highlightedSelector: string;
+  description: string;
 }
 
 export type FixKind =
@@ -35,6 +45,7 @@ export interface Finding {
   remediation: string;
   confidence: Confidence;
   kind: FindingKind;
+  screenshot?: VisualEvidence;
   safeFix?: SafeFix;
 }
 
