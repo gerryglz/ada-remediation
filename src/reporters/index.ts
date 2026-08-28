@@ -19,7 +19,7 @@ function wcagTargetText(result: ScanResult): string | undefined {
 function findingLevelBadge(finding: Finding): string {
   if (!finding.wcagLevel) return "";
   const level = escapeHtml(finding.wcagLevel);
-  return `<span class="wcag-level-badge level-${level.toLowerCase()}">WCAG Level ${level}</span>`;
+  return `<span class="wcag-level-badge level-${level.toLowerCase()}" aria-label="WCAG Level ${level}" title="WCAG Level ${level}">${level}</span>`;
 }
 
 export function terminalReport(result: ScanResult): string {

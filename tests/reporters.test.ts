@@ -36,7 +36,8 @@ describe("reporters", () => {
     expect(html).toContain("WCAG 2.2 requirements — W3C");
     expect(html).toContain("WCAG 2.2 · Section 1.1.1");
     expect(html).toContain("wcag-level-badge level-a");
-    expect(html).toContain("WCAG Level A");
+    expect(html).toContain('aria-label="WCAG Level A"');
+    expect(html).toContain('title="WCAG Level A">A</span>');
     expect(html).toContain("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html");
     expect(html).toContain("View axe scanner rule details on Deque");
     expect(html).toContain("--accent-plum:#ab307e");
@@ -76,6 +77,7 @@ describe("reporters", () => {
     expect(html).toContain("--accent-blue:#6495ed");
     expect(html).toContain(".detail-section::before");
     expect(html).toContain("wcag-level-badge level-");
-    expect(html).toContain("WCAG Level '+f.wcagLevel");
+    expect(html).toContain("f.wcagLevel.toLowerCase(),f.wcagLevel");
+    expect(html).toContain("aria-label','WCAG Level '+f.wcagLevel");
   });
 });
