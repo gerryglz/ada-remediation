@@ -1,0 +1,31 @@
+name: Accessibility audit
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  accessibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Scan source and create SARIF
+        run: node dist/cli.js scan-repo . --format sarif --output ada-results.sarif --fail-on serious
+        continue-on-error: true
+      - name: Upload accessibility results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ada-results.sarif
+      - name: Enforce severity threshold
+        run: node dist/cli.js scan-repo . --fail-on serious

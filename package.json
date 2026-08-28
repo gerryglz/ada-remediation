@@ -1,0 +1,45 @@
+{
+  "name": "ada-remediation",
+  "version": "0.1.0",
+  "description": "Accessibility auditing and conservative remediation CLI for websites and source repositories.",
+  "type": "module",
+  "bin": {
+    "ada-assistant": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "keywords": [
+    "accessibility",
+    "wcag",
+    "ada",
+    "axe-core",
+    "a11y"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "axe-core": "^4.10.3",
+    "commander": "^14.0.0",
+    "fast-glob": "^3.3.3",
+    "ignore": "^7.0.5",
+    "parse5": "^7.3.0",
+    "playwright": "^1.55.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

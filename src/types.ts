@@ -1,0 +1,59 @@
+export type Severity = "critical" | "serious" | "moderate" | "minor";
+export type Confidence = "high" | "medium" | "low";
+export type FindingKind = "automatic" | "manual-review";
+
+export interface SourceLocation {
+  file?: string;
+  url?: string;
+  line?: number;
+  column?: number;
+  selector?: string;
+}
+
+export type FixKind =
+  | "remove-empty-aria-labelledby"
+  | "remove-empty-aria-describedby"
+  | "remove-redundant-role";
+
+export interface SafeFix {
+  kind: FixKind;
+  description: string;
+  attribute: string;
+  expectedValue: string;
+}
+
+export interface Finding {
+  fingerprint: string;
+  ruleId: string;
+  title: string;
+  severity: Severity;
+  wcag: string[];
+  location: SourceLocation;
+  evidence: string;
+  explanation: string;
+  impact: string;
+  remediation: string;
+  confidence: Confidence;
+  kind: FindingKind;
+  safeFix?: SafeFix;
+}
+
+export interface ScanMetadata {
+  scanner: "repository" | "url" | "site";
+  target: string;
+  startedAt: string;
+  completedAt: string;
+  toolVersion: string;
+  pagesOrFilesScanned: number;
+  incomplete?: Array<{ url: string; reason: string }>;
+}
+
+export interface ScanResult {
+  schemaVersion: "1.0";
+  metadata: ScanMetadata;
+  findings: Finding[];
+  notice: string;
+}
+
+export const LEGAL_NOTICE =
+  "Automated results cannot certify ADA, WCAG, or Section 508 compliance and do not replace manual accessibility testing.";
