@@ -1,4 +1,4 @@
-import type { CodeSuggestion } from "./types.js";
+import type { CodeSuggestion, ContrastEvidence } from "./types.js";
 
 function removeAttribute(markup: string, name: string): string {
   return markup.replace(new RegExp(`\\s+${name}\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)`, "gi"), "");
@@ -22,7 +22,7 @@ function suggestion(
   return { title, before: normalizedMarkup(before), after: normalizedMarkup(after), rationale, reviewRequired: true, alternatives };
 }
 
-export function buildCodeSuggestion(ruleId: string, evidence: string): CodeSuggestion | undefined {
+export function buildCodeSuggestion(ruleId: string, evidence: string, contrast?: ContrastEvidence): CodeSuggestion | undefined {
   const before = normalizedMarkup(evidence);
 
   switch (ruleId) {
@@ -141,12 +141,15 @@ export function buildCodeSuggestion(ruleId: string, evidence: string): CodeSugge
         "Every id must be unique. After renaming it, update matching for, href, aria-labelledby, aria-describedby, and other references.",
       );
     }
-    case "color-contrast": {
+    case "color-contrast":
+    case "color-contrast-enhanced": {
+      const target = contrast?.requiredRatio ? `${contrast.requiredRatio}:1` : ruleId === "color-contrast-enhanced" ? "7:1 for normal text or 4.5:1 for large text" : "4.5:1 for normal text or 3:1 for large text";
+      const current = contrast?.ratio ? ` The measured ratio is ${contrast.ratio}:1.` : "";
       return suggestion(
         "Increase foreground/background contrast",
         before,
-        `/* Example only — use colors from your design system */\n.affected-element {\n  color: #1c1c1c;\n  background-color: #f7f4ed;\n}`,
-        "Adjust the actual CSS colors and verify the final computed contrast in every state. Normal text generally needs 4.5:1; large text generally needs 3:1.",
+        `/* Current computed colors: ${contrast?.foreground ?? "foreground unknown"} on ${contrast?.background ?? "background unknown"} */\n/* Choose approved design tokens that reach ${target}. */\n.affected-element {\n  color: var(--accessible-foreground);\n  background-color: var(--accessible-background);\n}`,
+        `Adjust the actual CSS colors and verify the final computed contrast in every state.${current} The required target for this element is ${target}.`,
       );
     }
     case "document-title": {

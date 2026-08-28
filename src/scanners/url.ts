@@ -1,9 +1,10 @@
 import { createRequire } from "node:module";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
-import { LEGAL_NOTICE, type Finding, type ScanResult, type Severity, type VisualEvidence, type WcagLevel } from "../types.js";
+import { LEGAL_NOTICE, type ContrastEvidence, type Finding, type ScanResult, type Severity, type VisualEvidence, type WcagLevel } from "../types.js";
 import { fingerprintFinding, TOOL_VERSION } from "../utils.js";
 import { buildCodeSuggestion } from "../suggestions.js";
 import { axeTagsForWcagLevel, DEFAULT_WCAG_LEVEL, wcagLevelFromTags } from "../wcag.js";
+import { manualReviewChecklist } from "../manual.js";
 
 const require = createRequire(import.meta.url);
 const axePath = require.resolve("axe-core/axe.min.js");
@@ -54,6 +55,37 @@ function normalizeViolation(violation: AxeViolation, node: AxeNode, url: string,
     kind: "automatic",
     codeSuggestion: buildCodeSuggestion(violation.id, node.html),
   };
+}
+
+function summaryValue(summary: string | undefined, pattern: RegExp): string | undefined {
+  return summary?.match(pattern)?.[1]?.trim();
+}
+
+async function captureContrastEvidence(
+  page: Page,
+  selector: string,
+  failureSummary: string | undefined,
+): Promise<ContrastEvidence | undefined> {
+  try {
+    const locator = page.locator(selector).first();
+    if ((await locator.count()) === 0) return undefined;
+    const computed = await locator.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { foreground: style.color, background: style.backgroundColor, fontSize: style.fontSize, fontWeight: style.fontWeight };
+    });
+    const ratio = Number(summaryValue(failureSummary, /contrast(?: ratio)? of\s+([\d.]+)/i));
+    const requiredRatio = Number(summaryValue(failureSummary, /expected contrast ratio of\s+([\d.]+):1/i));
+    return {
+      foreground: summaryValue(failureSummary, /foreground color:\s*([^,)]+)/i) ?? computed.foreground,
+      background: summaryValue(failureSummary, /background color:\s*([^,)]+)/i) ?? computed.background,
+      ...(Number.isFinite(ratio) && ratio > 0 ? { ratio } : {}),
+      ...(Number.isFinite(requiredRatio) && requiredRatio > 0 ? { requiredRatio } : {}),
+      fontSize: summaryValue(failureSummary, /font size:\s*(.*?),\s*font weight:/i) ?? computed.fontSize,
+      fontWeight: summaryValue(failureSummary, /font weight:\s*([^,)]+)/i) ?? computed.fontWeight,
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 async function captureScreenshot(page: Page, selector: string, title: string): Promise<VisualEvidence | undefined> {
@@ -128,6 +160,13 @@ async function scanPage(
   for (const violation of result.violations) {
     for (const node of violation.nodes) {
       const finding = normalizeViolation(violation, node, url, result.pageTitle);
+      if (["color-contrast", "color-contrast-enhanced"].includes(finding.ruleId)) {
+        finding.contrast = await captureContrastEvidence(page, finding.location.selector!, node.failureSummary);
+        finding.codeSuggestion = buildCodeSuggestion(finding.ruleId, node.html, finding.contrast);
+        if (finding.contrast?.ratio && finding.contrast.requiredRatio) {
+          finding.remediation = `Change the foreground or background color so the measured ${finding.contrast.ratio}:1 contrast reaches at least ${finding.contrast.requiredRatio}:1 in every interactive state.`;
+        }
+      }
       if (captureScreenshots && screenshotBudget.remaining > 0) {
         finding.screenshot = await captureScreenshot(page, finding.location.selector!, finding.title);
         if (finding.screenshot) screenshotBudget.remaining -= 1;
@@ -217,6 +256,7 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
       incomplete,
     },
     findings,
+    manualChecks: manualReviewChecklist(wcagLevel),
     notice: LEGAL_NOTICE,
   };
 }

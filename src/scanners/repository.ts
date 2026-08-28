@@ -5,6 +5,7 @@ import createIgnore from "ignore";
 import { parse } from "parse5";
 import { LEGAL_NOTICE, type Finding, type ScanResult, type SafeFix } from "../types.js";
 import { createFinding } from "../rules.js";
+import { manualReviewChecklist } from "../manual.js";
 import { TOOL_VERSION } from "../utils.js";
 
 interface HtmlAttribute {
@@ -218,6 +219,7 @@ export async function scanRepository(target: string, options: RepositoryScanOpti
       pagesOrFilesScanned: files.length,
     },
     findings,
+    manualChecks: manualReviewChecklist("AA"),
     notice: LEGAL_NOTICE,
   };
 }

@@ -23,4 +23,18 @@ describe("code suggestions", () => {
     expect(suggestion?.after).toContain("aria-label");
     expect(suggestion?.after).toContain("accessible alternative");
   });
+
+  it("uses measured contrast evidence for AA and AAA code guidance", () => {
+    const suggestion = buildCodeSuggestion("color-contrast-enhanced", "<p>Muted copy</p>", {
+      foreground: "#777777",
+      background: "#ffffff",
+      ratio: 4.48,
+      requiredRatio: 7,
+      fontSize: "16px",
+      fontWeight: "400",
+    });
+    expect(suggestion?.after).toContain("#777777 on #ffffff");
+    expect(suggestion?.after).toContain("7:1");
+    expect(suggestion?.rationale).toContain("4.48:1");
+  });
 });

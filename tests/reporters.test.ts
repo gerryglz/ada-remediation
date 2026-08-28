@@ -10,6 +10,14 @@ describe("reporters", () => {
     result.findings[0].location.url = "https://example.com/problem";
     result.findings[0].location.pageTitle = "Example problem page";
     result.findings[0].helpUrl = "https://dequeuniversity.com/rules/axe/4.13/image-alt";
+    result.findings[0].contrast = {
+      foreground: "#777777",
+      background: "#ffffff",
+      ratio: 4.48,
+      requiredRatio: 7,
+      fontSize: "16px",
+      fontWeight: "400",
+    };
     result.findings[0].screenshot = {
       dataUrl: "data:image/jpeg;base64,ZmFrZQ==",
       mimeType: "image/jpeg",
@@ -32,6 +40,13 @@ describe("reporters", () => {
     expect(html).toContain("Where it was found");
     expect(html).toContain("Why this was flagged");
     expect(html).toContain("How to verify the fix");
+    expect(html).toContain("Color contrast evidence");
+    expect(html).toContain("Measured ratio");
+    expect(html).toContain("4.48:1");
+    expect(html).toContain("Manual accessibility checklist");
+    expect(html).toContain("Required human review");
+    expect(html).toContain("data-manual-check");
+    expect(html).toContain("manual-progress");
     expect(html).toContain("https://dequeuniversity.com/rules/axe/4.13/image-alt");
     expect(html).toContain("WCAG 2.2 requirements — W3C");
     expect(html).toContain("WCAG 2.2 · Section 1.1.1");
@@ -71,6 +86,11 @@ describe("reporters", () => {
     expect(html).toContain("scan-collapsed");
     expect(html).toContain("setScanControlsExpanded");
     expect(html).toContain("Show scan controls");
+    expect(html).toContain("Automated findings");
+    expect(html).toContain("Manual checklist");
+    expect(html).toContain("renderManualChecks");
+    expect(html).toContain("Color contrast evidence");
+    expect(html).toContain("Manual tasks");
     expect(html).toContain("#f7f4ed");
     expect(html).toContain("Download HTML report");
     expect(html).toContain("Capture screenshots");

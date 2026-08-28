@@ -30,6 +30,26 @@ export interface CodeSuggestion {
   alternatives?: string[];
 }
 
+export interface ContrastEvidence {
+  foreground: string;
+  background: string;
+  ratio?: number;
+  requiredRatio?: number;
+  fontSize?: string;
+  fontWeight?: string;
+}
+
+export interface ManualCheck {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  wcagLevel: WcagLevel;
+  wcag: string[];
+  steps: string[];
+  status: "todo";
+}
+
 export type FixKind =
   | "remove-empty-aria-labelledby"
   | "remove-empty-aria-describedby"
@@ -57,6 +77,7 @@ export interface Finding {
   remediation: string;
   confidence: Confidence;
   kind: FindingKind;
+  contrast?: ContrastEvidence;
   codeSuggestion?: CodeSuggestion;
   screenshot?: VisualEvidence;
   safeFix?: SafeFix;
@@ -77,6 +98,7 @@ export interface ScanResult {
   schemaVersion: "1.0";
   metadata: ScanMetadata;
   findings: Finding[];
+  manualChecks: ManualCheck[];
   notice: string;
 }
 
