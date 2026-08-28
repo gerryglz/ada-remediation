@@ -8,6 +8,7 @@ describe("reporters", () => {
     const result = await scanRepository("tests/fixtures/inaccessible");
     result.findings[0].location.url = "https://example.com/problem";
     result.findings[0].location.pageTitle = "Example problem page";
+    result.findings[0].helpUrl = "https://dequeuniversity.com/rules/axe/4.13/image-alt";
     result.findings[0].screenshot = {
       dataUrl: "data:image/jpeg;base64,ZmFrZQ==",
       mimeType: "image/jpeg",
@@ -24,6 +25,14 @@ describe("reporters", () => {
     expect(html).toContain("Before — detected markup");
     expect(html).toContain("Suggested after — starting point");
     expect(html).toContain("Open large screenshot");
+    expect(html).toContain("Finding summary");
+    expect(html).toContain("Where it was found");
+    expect(html).toContain("Why this was flagged");
+    expect(html).toContain("How to verify the fix");
+    expect(html).toContain("https://dequeuniversity.com/rules/axe/4.13/image-alt");
+    expect(html).toContain("WCAG requirements — W3C");
+    expect(html).toContain("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html");
+    expect(html).toContain("View axe scanner rule details on Deque");
     const sarif = JSON.parse(sarifReport(result)) as { version: string; runs: unknown[] };
     expect(sarif.version).toBe("2.1.0");
     expect(sarif.runs).toHaveLength(1);
@@ -39,5 +48,11 @@ describe("reporters", () => {
     expect(html).toContain("zero automated axe-core findings");
     expect(html).toContain("Finding list");
     expect(html).toContain("image-dialog");
+    expect(html).toContain("Finding summary");
+    expect(html).toContain("Where it was found");
+    expect(html).toContain("How to verify the fix");
+    expect(html).toContain("Open the affected source page");
+    expect(html).toContain("W3C Understanding guidance");
+    expect(html).toContain("wcagUnderstandingUrls");
   });
 });
