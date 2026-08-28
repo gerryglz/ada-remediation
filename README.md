@@ -34,7 +34,8 @@ This is the easiest way to test a website when you have its URL.
 5. Leave **Capture screenshots** selected if you want visual evidence.
 6. Select **Crawl same-origin pages** only when you want more than the supplied page and are authorized to crawl the site.
 7. Click **Scan page**.
-8. Review the selected target, severity totals, and **Finding list**. Use the separate **Impact severity** and **WCAG level** controls together to narrow findings—for example, Serious + AAA. The review workspace separates the selected result into clearly labeled sections:
+8. When a scan finishes, the scan controls collapse automatically so the report can use the full browser height. Select **Show scan controls** in the header whenever you want to change the URL, WCAG target, crawl option, or screenshot option and run another scan.
+9. Review the selected target, severity totals, and **Finding list**. On desktop, the finding queue and selected finding scroll independently so you can keep your place in both columns. Use the separate **Impact severity** and **WCAG level** controls together to narrow findings—for example, Serious + AAA. On smaller screens, the queue and details stack into one readable page. The review workspace separates the selected result into clearly labeled sections:
    - **Finding summary** explains priority and detection confidence, shows an **A**, **AA**, or **AAA** badge for the individual rule, labels requirements as **WCAG 2.2 · Section X.X.X**, links each one to its exact W3C Understanding page, and labels Deque separately as axe scanner documentation
    - **Where it was found** provides clickable source-page links and the affected CSS selector
    - **Visual evidence** shows a compact screenshot thumbnail that opens into a near-full-window view
@@ -42,12 +43,12 @@ This is the easiest way to test a website when you have its URL.
    - **Recommended fix** explains the next change to consider
    - **Code example** compares the detected markup with a suggested starting point when a useful pattern is available
    - **How to verify the fix** provides a retesting checklist with W3C standards links first, followed by the affected source page and optional Deque/axe scanner details
-9. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report. Both record the selected conformance target.
-10. Press `Ctrl+C` in the terminal when you are finished to stop the dashboard.
+10. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report. Both record the selected conformance target.
+11. Press `Ctrl+C` in the terminal when you are finished to stop the dashboard.
 
 The dashboard runs locally on your computer and binds to `127.0.0.1` by default. It does not upload reports or screenshots to an external service. Screenshots can contain visible page information, including information from authenticated pages, so review them before sharing.
 
-The results area uses a dashboard layout: select an item from the **Finding list** to open its detailed review workspace. Plum identifies critical priority, orange identifies serious priority, cornflower blue supports standards and informational context, and green consistently identifies WCAG-level badges and filters. A visible divider separates every review section. Click the compact screenshot thumbnail to open an almost full-window view, then use **Close** or the Escape key to return. Before/after examples are starting points, not automatic fixes. Replace bracketed placeholders, consider the listed alternative, review the surrounding code, and retest the page before accepting a change.
+The results area is a full-height application workspace: the compact header and summary stay easy to scan while the finding queue and selected-finding details use the remaining browser space. Select an item from the **Finding list** to open its detailed review workspace. Plum identifies critical priority, orange identifies serious priority, cornflower blue supports standards and informational context, and green consistently identifies WCAG-level badges and filters. A visible divider separates every review section. Click the compact screenshot thumbnail to open an almost full-window view, then use **Close** or the Escape key to return. Before/after examples are starting points, not automatic fixes. Replace bracketed placeholders, consider the listed alternative, review the surrounding code, and retest the page before accepting a change.
 
 W3C is presented as the primary accessibility standards source. Deque links are secondary and explain the axe-core rule that produced an automated finding; they do not replace the linked WCAG requirement.
 
