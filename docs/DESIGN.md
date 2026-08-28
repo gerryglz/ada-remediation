@@ -183,6 +183,16 @@ What makes Lovable's visual system distinctive is its opacity-driven depth model
 
 ## 5. Layout Principles
 
+### Application Workspace
+- The audit dashboard uses the full browser viewport instead of a centered marketing-page container.
+- A compact 56px application header keeps product identity, the local-mode label, and the scan-controls toggle available without competing with report content.
+- The scan toolbar is a compact horizontal row on desktop. It collapses automatically after a successful scan and remains recoverable through the clearly labeled **Show scan controls** button.
+- The scan summary is a narrow status band containing the target URL, WCAG target, exports, totals, and automated-testing limitation.
+- The remaining height belongs to a persistent two-pane review workspace: a 330–380px finding queue on the left and a flexible selected-finding detail pane on the right.
+- The finding queue and selected-finding detail pane scroll independently. Changing the selected finding resets the detail pane to its beginning without losing the queue position.
+- At 900px and below, the page returns to normal document scrolling and stacks the finding queue above the detail view. At 600px and below, scan inputs, summary metrics, and metadata cards use a single-column or compact two-column layout.
+- Use borders and section dividers for structure; do not add heavy shadows or decorative panels that reduce usable report space.
+
 ### Spacing System
 - Base unit: 8px
 - Scale: 8px, 10px, 12px, 16px, 24px, 32px, 40px, 56px, 80px, 96px, 128px, 176px, 192px, 208px

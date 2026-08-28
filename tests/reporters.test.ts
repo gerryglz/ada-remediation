@@ -60,6 +60,17 @@ describe("reporters", () => {
   it("renders the local dashboard using the documented design system", () => {
     const html = dashboardHtml();
     expect(html).toContain("id=\"scan-form\"");
+    expect(html).toContain('class="app-header"');
+    expect(html).toContain("Accessibility audit workspace");
+    expect(html).toContain('id="scan-toggle"');
+    expect(html).toContain('aria-controls="scan-panel"');
+    expect(html).toContain('id="scan-panel"');
+    expect(html).toContain("100dvh");
+    expect(html).toContain("grid-template-columns:minmax(330px,380px) minmax(0,1fr)");
+    expect(html).toContain("scrollbar-gutter:stable");
+    expect(html).toContain("scan-collapsed");
+    expect(html).toContain("setScanControlsExpanded");
+    expect(html).toContain("Show scan controls");
     expect(html).toContain("#f7f4ed");
     expect(html).toContain("Download HTML report");
     expect(html).toContain("Capture screenshots");
