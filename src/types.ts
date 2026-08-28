@@ -44,6 +44,7 @@ export interface SafeFix {
 export interface Finding {
   fingerprint: string;
   ruleId: string;
+  helpUrl?: string;
   title: string;
   severity: Severity;
   wcag: string[];
