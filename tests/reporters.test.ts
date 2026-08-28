@@ -30,9 +30,13 @@ describe("reporters", () => {
     expect(html).toContain("Why this was flagged");
     expect(html).toContain("How to verify the fix");
     expect(html).toContain("https://dequeuniversity.com/rules/axe/4.13/image-alt");
-    expect(html).toContain("WCAG requirements — W3C");
+    expect(html).toContain("WCAG 2.2 requirements — W3C");
+    expect(html).toContain("WCAG 2.2 · Section 1.1.1");
     expect(html).toContain("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html");
     expect(html).toContain("View axe scanner rule details on Deque");
+    expect(html).toContain("--accent-plum:#ab307e");
+    expect(html).toContain("--accent-blue:#6495ed");
+    expect(html).toContain(".finding .report-section::before");
     const sarif = JSON.parse(sarifReport(result)) as { version: string; runs: unknown[] };
     expect(sarif.version).toBe("2.1.0");
     expect(sarif.runs).toHaveLength(1);
@@ -54,5 +58,11 @@ describe("reporters", () => {
     expect(html).toContain("Open the affected source page");
     expect(html).toContain("W3C Understanding guidance");
     expect(html).toContain("wcagUnderstandingUrls");
+    expect(html).toContain("const wcagVersion=\"2.2\"");
+    expect(html).toContain("/^WCAG (\\d+\\.\\d+\\.\\d+)(.*)$/");
+    expect(html).toContain("WCAG '+wcagVersion+' · Section ");
+    expect(html).toContain("--accent-plum:#ab307e");
+    expect(html).toContain("--accent-blue:#6495ed");
+    expect(html).toContain(".detail-section::before");
   });
 });
