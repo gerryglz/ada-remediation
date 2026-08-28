@@ -45,8 +45,12 @@ What makes Lovable's visual system distinctive is its opacity-driven depth model
 ### Dashboard accents
 - **Plum** (`#ab307e`): Critical-priority badges, selected-item emphasis, and the leading edge of section dividers. Use with `#fcfbf8` text; this pairing has sufficient contrast for small badge labels.
 - **Cornflower Blue** (`#6495ED`): Standards-card borders, focus rings, and informational accents. Use dark `#1c1c1c` text on this color; do not use small white text on it.
+- **Accessible Green** (`#2f7d5a`): WCAG-level filters and the shared border for A, AA, and AAA badges. Use `#fcfbf8` on the solid color and dark text on its soft tint.
+- **Burnt Orange** (`#9a4e12`): Serious-priority badges and warning-oriented emphasis. Use with `#fcfbf8` text.
 - **Soft Plum** (`rgba(171,48,126,0.10)`): Optional background tint for priority-related surfaces.
 - **Soft Cornflower** (`rgba(100,149,237,0.14)`): WCAG cards, selected findings, and moderate-priority badges with dark text.
+- **Soft Green** (`rgba(47,125,90,0.12)`): Shared A, AA, and AAA badge background with dark text.
+- **Soft Orange** (`rgba(154,78,18,0.12)`): Optional warning and serious-priority surface tint with dark text.
 - **Section divider**: A 2px line that moves from plum to cornflower blue and then into the neutral border color. It separates review steps without turning each section into a heavy card.
 
 ### Inset Shadows
@@ -236,7 +240,7 @@ What makes Lovable's visual system distinctive is its opacity-driven depth model
 ### Don't
 - Don't use pure white (`#ffffff`) as a page background — the cream is intentional
 - Don't use heavy box-shadows for cards — borders are the containment mechanism
-- Don't use accent colors as decoration without meaning. Reserve plum for priority/selection and cornflower blue for standards, focus, and informational context.
+- Don't use accent colors as decoration without meaning. Reserve plum for critical priority/selection, orange for serious priority, cornflower blue for standards/focus/information, and green for WCAG-level identity and filtering.
 - Don't use weight 700 (bold) — 600 is the maximum weight in the system
 - Don't apply 9999px radius on rectangular buttons — pills are for icon/action toggles
 - Don't use sharp focus outlines — the system uses soft shadow-based focus indicators

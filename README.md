@@ -30,23 +30,24 @@ This is the easiest way to test a website when you have its URL.
 
 2. Open [http://127.0.0.1:4173](http://127.0.0.1:4173) in your browser.
 3. Paste a complete website URL, such as `https://www.michiganbusiness.org/`.
-4. Leave **Capture screenshots** selected if you want visual evidence.
-5. Select **Crawl same-origin pages** only when you want more than the supplied page and are authorized to crawl the site.
-6. Click **Scan page**.
-7. Review the severity totals, filter the findings, and select one from the **Finding list**. The review workspace separates the result into clearly labeled sections:
-   - **Finding summary** explains priority and detection confidence, labels requirements as **WCAG 2.2 · Section X.X.X**, links each one to its exact W3C Understanding page, and labels Deque separately as axe scanner documentation
+4. Choose the **WCAG 2.2 conformance target**. **Level AA** is the default and the most common organizational target. Higher levels include all available automated checks from the lower levels.
+5. Leave **Capture screenshots** selected if you want visual evidence.
+6. Select **Crawl same-origin pages** only when you want more than the supplied page and are authorized to crawl the site.
+7. Click **Scan page**.
+8. Review the selected target, severity totals, and **Finding list**. Use the separate **Impact severity** and **WCAG level** controls together to narrow findings—for example, Serious + AAA. The review workspace separates the selected result into clearly labeled sections:
+   - **Finding summary** explains priority and detection confidence, shows an **A**, **AA**, or **AAA** badge for the individual rule, labels requirements as **WCAG 2.2 · Section X.X.X**, links each one to its exact W3C Understanding page, and labels Deque separately as axe scanner documentation
    - **Where it was found** provides clickable source-page links and the affected CSS selector
    - **Visual evidence** shows a compact screenshot thumbnail that opens into a near-full-window view
    - **Why this was flagged** separates the rule purpose from the specific failed check
    - **Recommended fix** explains the next change to consider
    - **Code example** compares the detected markup with a suggested starting point when a useful pattern is available
    - **How to verify the fix** provides a retesting checklist with W3C standards links first, followed by the affected source page and optional Deque/axe scanner details
-8. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report.
-9. Press `Ctrl+C` in the terminal when you are finished to stop the dashboard.
+9. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report. Both record the selected conformance target.
+10. Press `Ctrl+C` in the terminal when you are finished to stop the dashboard.
 
 The dashboard runs locally on your computer and binds to `127.0.0.1` by default. It does not upload reports or screenshots to an external service. Screenshots can contain visible page information, including information from authenticated pages, so review them before sharing.
 
-The results area uses a dashboard layout: select an item from the **Finding list** to open its detailed review workspace. Plum and cornflower accents identify priority and standards information, while a visible divider separates every review section. Click the compact screenshot thumbnail to open an almost full-window view, then use **Close** or the Escape key to return. Before/after examples are starting points, not automatic fixes. Replace bracketed placeholders, consider the listed alternative, review the surrounding code, and retest the page before accepting a change.
+The results area uses a dashboard layout: select an item from the **Finding list** to open its detailed review workspace. Plum identifies critical priority, orange identifies serious priority, cornflower blue supports standards and informational context, and green consistently identifies WCAG-level badges and filters. A visible divider separates every review section. Click the compact screenshot thumbnail to open an almost full-window view, then use **Close** or the Escape key to return. Before/after examples are starting points, not automatic fixes. Replace bracketed placeholders, consider the listed alternative, review the surrounding code, and retest the page before accepting a change.
 
 W3C is presented as the primary accessibility standards source. Deque links are secondary and explain the axe-core rule that produced an automated finding; they do not replace the linked WCAG requirement.
 
@@ -89,6 +90,28 @@ node dist/cli.js scan-url https://www.michiganbusiness.org/ --no-screenshots
 ```
 
 The terminal will list findings or explain why the page was incomplete.
+
+## Choose a WCAG 2.2 conformance target
+
+Rendered website scans support three cumulative targets:
+
+| Target | Automated rules included | Typical use |
+| --- | --- | --- |
+| **Level A** | Available Level A rules | Essential minimum checks and early development feedback |
+| **Level AA** | Available Level A + AA rules | Common legal, policy, procurement, and production target; this is the default |
+| **Level AAA** | Available Level A + AA + AAA rules | Enhanced review for content or services with stricter accessibility goals |
+
+Choose a target in the dashboard or pass `--wcag-level A`, `--wcag-level AA`, or `--wcag-level AAA` to `scan-url` and `scan-site`:
+
+```bash
+node dist/cli.js scan-url https://example.com --wcag-level A
+node dist/cli.js scan-url https://example.com --wcag-level AA
+node dist/cli.js scan-site https://example.com --wcag-level AAA --max-pages 25
+```
+
+The selected target filters axe-core to the automated WCAG rules available for that level. Each finding also receives its own **A**, **AA**, or **AAA** badge based on the rule's WCAG tag. All three badge labels share the same green treatment so color never implies that one conformance level is a severity. Hovering over a badge shows its full WCAG level label. After a scan, use **All levels**, **A**, **AA**, or **AAA** to filter the finding list; the level choice combines with the selected impact-severity filter. For example, a Level AAA scan can contain findings from all three levels, and choosing **AAA** shows only the enhanced-level findings.
+
+The WCAG level and severity badges answer different questions: the WCAG badge identifies the requirement's conformance level, while **Critical**, **Serious**, **Moderate**, or **Minor** communicates the automated tool's assessment of user impact. Neither badge proves compliance. Many criteria—including much of Level AAA—require human judgment, assistive-technology testing, content review, and testing by people with disabilities. Repository source scans currently run the tool's supported HTML rules and do not use this rendered-scan level filter; their supported rules are labeled individually.
 
 ## Choose how to test a website
 
@@ -248,7 +271,7 @@ node dist/cli.js report ada-results.json --format html --output accessibility-re
 node dist/cli.js report ada-results.json --format sarif --output ada-results.sarif
 ```
 
-Open the HTML report in a browser to filter by severity and inspect evidence. JSON is the input for fixes and baselines. SARIF is intended for code-scanning integrations.
+Open the HTML report in a browser to combine impact-severity and WCAG-level filters and inspect evidence. JSON is the input for fixes and baselines. SARIF is intended for code-scanning integrations.
 
 ## Preview fixes, apply them, and test again
 

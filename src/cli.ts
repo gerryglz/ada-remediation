@@ -9,9 +9,10 @@ import { applyFixes, formatDiff, proposeFixes } from "./remediation.js";
 import { renderReport, writeReport, type ReportFormat } from "./reporters/index.js";
 import { scanRepository } from "./scanners/repository.js";
 import { scanUrls } from "./scanners/url.js";
-import type { ScanResult, Severity } from "./types.js";
+import type { ScanResult, Severity, WcagLevel } from "./types.js";
 import { startUiServer } from "./ui/server.js";
 import { hasFindingsAtOrAbove, TOOL_VERSION } from "./utils.js";
+import { parseWcagLevel } from "./wcag.js";
 
 const formats = new Set<ReportFormat>(["terminal", "json", "html", "sarif"]);
 const severities = new Set<Severity>(["critical", "serious", "moderate", "minor"]);
@@ -24,6 +25,14 @@ function reportFormat(value: string): ReportFormat {
 function severity(value: string): Severity {
   if (!severities.has(value as Severity)) throw new InvalidArgumentError("Use critical, serious, moderate, or minor.");
   return value as Severity;
+}
+
+function wcagLevel(value: string): WcagLevel {
+  try {
+    return parseWcagLevel(value);
+  } catch {
+    throw new InvalidArgumentError("Use A, AA, or AAA.");
+  }
 }
 
 async function loadResult(file: string): Promise<ScanResult> {
@@ -78,12 +87,14 @@ addOutputOptions(
     .argument("<urls...>", "URLs to scan")
     .option("--timeout <milliseconds>", "navigation timeout", (value) => Number.parseInt(value, 10), 30_000)
     .option("--storage-state <file>", "Playwright storage state for an authenticated session")
+    .option("--wcag-level <level>", "WCAG 2.2 conformance target: A, AA, or AAA", wcagLevel, "AA")
     .option("--no-screenshots", "do not capture highlighted viewport screenshots"),
-).action(async (urls: string[], options: OutputOptions & { timeout: number; storageState?: string; screenshots: boolean }) => {
+).action(async (urls: string[], options: OutputOptions & { timeout: number; storageState?: string; screenshots: boolean; wcagLevel: WcagLevel }) => {
   await finishScan(
     await scanUrls(urls, {
       timeout: options.timeout,
       storageState: options.storageState,
+      wcagLevel: options.wcagLevel,
       captureScreenshots: options.screenshots,
     }),
     options,
@@ -98,14 +109,16 @@ addOutputOptions(
     .option("--max-pages <count>", "maximum pages to scan", (value) => Number.parseInt(value, 10), 25)
     .option("--timeout <milliseconds>", "navigation timeout", (value) => Number.parseInt(value, 10), 30_000)
     .option("--storage-state <file>", "Playwright storage state for an authenticated session")
+    .option("--wcag-level <level>", "WCAG 2.2 conformance target: A, AA, or AAA", wcagLevel, "AA")
     .option("--no-screenshots", "do not capture highlighted viewport screenshots"),
-).action(async (url: string, options: OutputOptions & { maxPages: number; timeout: number; storageState?: string; screenshots: boolean }) => {
+).action(async (url: string, options: OutputOptions & { maxPages: number; timeout: number; storageState?: string; screenshots: boolean; wcagLevel: WcagLevel }) => {
   await finishScan(
     await scanUrls([url], {
       crawl: true,
       maxPages: options.maxPages,
       timeout: options.timeout,
       storageState: options.storageState,
+      wcagLevel: options.wcagLevel,
       captureScreenshots: options.screenshots,
     }),
     options,
