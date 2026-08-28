@@ -1,8 +1,9 @@
 import { createRequire } from "node:module";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
-import { LEGAL_NOTICE, type Finding, type ScanResult, type Severity, type VisualEvidence } from "../types.js";
+import { LEGAL_NOTICE, type Finding, type ScanResult, type Severity, type VisualEvidence, type WcagLevel } from "../types.js";
 import { fingerprintFinding, TOOL_VERSION } from "../utils.js";
 import { buildCodeSuggestion } from "../suggestions.js";
+import { axeTagsForWcagLevel, DEFAULT_WCAG_LEVEL } from "../wcag.js";
 
 const require = createRequire(import.meta.url);
 const axePath = require.resolve("axe-core/axe.min.js");
@@ -104,15 +105,23 @@ async function scanPage(
   timeout: number,
   captureScreenshots: boolean,
   screenshotBudget: { remaining: number },
+  axeTags: string[],
 ): Promise<{ findings: Finding[]; links: string[] }> {
   await page.goto(url, { waitUntil: "networkidle", timeout });
   await page.addScriptTag({ path: axePath });
-  const result = await page.evaluate(async () => {
-    const axe = (window as unknown as { axe: { run: (context: Document, options: object) => Promise<{ violations: AxeViolation[] }> } }).axe;
-    const audit = await axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"] } });
+  const result = await page.evaluate(async (runOnlyTags) => {
+    const axe = (window as unknown as {
+      axe: {
+        getRules: () => Array<{ tags: string[] }>;
+        run: (context: Document, options: object) => Promise<{ violations: AxeViolation[] }>;
+      };
+    }).axe;
+    const availableTags = new Set(axe.getRules().flatMap((rule) => rule.tags));
+    const supportedTags = runOnlyTags.filter((tag) => availableTags.has(tag));
+    const audit = await axe.run(document, { runOnly: { type: "tag", values: supportedTags } });
     const links = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]")).map((link) => link.href);
     return { violations: audit.violations, links, pageTitle: document.title };
-  });
+  }, axeTags);
 
   const findings: Finding[] = [];
   for (const violation of result.violations) {
@@ -139,12 +148,15 @@ export interface UrlScanOptions {
   crawl?: boolean;
   captureScreenshots?: boolean;
   screenshotLimit?: number;
+  wcagLevel?: WcagLevel;
 }
 
 export async function scanUrls(targets: string[], options: UrlScanOptions = {}): Promise<ScanResult> {
   const startedAt = new Date().toISOString();
   const timeout = options.timeout ?? 30_000;
   const maxPages = options.maxPages ?? targets.length;
+  const wcagLevel = options.wcagLevel ?? DEFAULT_WCAG_LEVEL;
+  const axeTags = axeTagsForWcagLevel(wcagLevel);
   let browser: Browser | undefined;
   let context: BrowserContext | undefined;
   const findings: Finding[] = [];
@@ -167,7 +179,7 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
       if (visited.has(url)) continue;
       visited.add(url);
       try {
-        const pageResult = await scanPage(page, url, timeout, options.captureScreenshots ?? true, screenshotBudget);
+        const pageResult = await scanPage(page, url, timeout, options.captureScreenshots ?? true, screenshotBudget, axeTags);
         findings.push(...pageResult.findings);
         if (options.crawl) {
           for (const href of pageResult.links) {
@@ -200,6 +212,7 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
       completedAt: new Date().toISOString(),
       toolVersion: TOOL_VERSION,
       pagesOrFilesScanned: visited.size - incomplete.length,
+      wcagLevel,
       incomplete,
     },
     findings,

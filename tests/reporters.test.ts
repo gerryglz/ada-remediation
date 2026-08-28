@@ -6,6 +6,7 @@ import { dashboardHtml } from "../src/ui/server.js";
 describe("reporters", () => {
   it("renders terminal, HTML, and SARIF output", async () => {
     const result = await scanRepository("tests/fixtures/inaccessible");
+    result.metadata.wcagLevel = "AAA";
     result.findings[0].location.url = "https://example.com/problem";
     result.findings[0].location.pageTitle = "Example problem page";
     result.findings[0].helpUrl = "https://dequeuniversity.com/rules/axe/4.13/image-alt";
@@ -17,9 +18,11 @@ describe("reporters", () => {
       highlightedSelector: "img",
       description: "The affected image is outlined in charcoal.",
     };
+    expect(terminalReport(result)).toContain("Conformance target: WCAG 2.2 Level AAA");
     expect(terminalReport(result)).toContain("Automated results cannot certify");
     const html = htmlReport(result);
     expect(html).toContain("Findings in context");
+    expect(html).toContain("Conformance target:</strong> WCAG 2.2 Level AAA");
     expect(html).toContain("Example problem page");
     expect(html).toContain("data:image/jpeg;base64,ZmFrZQ==");
     expect(html).toContain("Before — detected markup");
@@ -48,6 +51,12 @@ describe("reporters", () => {
     expect(html).toContain("#f7f4ed");
     expect(html).toContain("Download HTML report");
     expect(html).toContain("Capture screenshots");
+    expect(html).toContain("WCAG 2.2 conformance target");
+    expect(html).toContain("Level A — essential");
+    expect(html).toContain("Level AA — common target");
+    expect(html).toContain("Level AAA — enhanced");
+    expect(html).toContain("wcagLevel:selectedLevel");
+    expect(html).toContain("result.metadata.wcagLevel||'AA'");
     expect(html).toContain("Pages tested");
     expect(html).toContain("zero automated axe-core findings");
     expect(html).toContain("Finding list");

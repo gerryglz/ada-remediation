@@ -1,6 +1,7 @@
 export type Severity = "critical" | "serious" | "moderate" | "minor";
 export type Confidence = "high" | "medium" | "low";
 export type FindingKind = "automatic" | "manual-review";
+export type WcagLevel = "A" | "AA" | "AAA";
 
 export interface SourceLocation {
   file?: string;
@@ -67,6 +68,7 @@ export interface ScanMetadata {
   completedAt: string;
   toolVersion: string;
   pagesOrFilesScanned: number;
+  wcagLevel?: WcagLevel;
   incomplete?: Array<{ url: string; reason: string }>;
 }
 

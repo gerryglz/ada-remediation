@@ -1,6 +1,37 @@
+import type { WcagLevel } from "./types.js";
+
 const BASE_URL = "https://www.w3.org/WAI/WCAG22/Understanding/";
 
 export const WCAG_VERSION = "2.2";
+export const DEFAULT_WCAG_LEVEL: WcagLevel = "AA";
+export const WCAG_LEVELS: readonly WcagLevel[] = Object.freeze(["A", "AA", "AAA"]);
+
+const AXE_TAGS_BY_LEVEL: Readonly<Record<WcagLevel, readonly string[]>> = Object.freeze({
+  A: Object.freeze(["wcag2a", "wcag21a", "wcag22a"]),
+  AA: Object.freeze(["wcag2a", "wcag21a", "wcag22a", "wcag2aa", "wcag21aa", "wcag22aa"]),
+  AAA: Object.freeze([
+    "wcag2a",
+    "wcag21a",
+    "wcag22a",
+    "wcag2aa",
+    "wcag21aa",
+    "wcag22aa",
+    "wcag2aaa",
+    "wcag21aaa",
+    "wcag22aaa",
+  ]),
+});
+
+export function parseWcagLevel(value: unknown, fallback: WcagLevel = DEFAULT_WCAG_LEVEL): WcagLevel {
+  if (value === undefined || value === null || value === "") return fallback;
+  const normalized = String(value).toUpperCase();
+  if (WCAG_LEVELS.includes(normalized as WcagLevel)) return normalized as WcagLevel;
+  throw new Error("WCAG level must be A, AA, or AAA.");
+}
+
+export function axeTagsForWcagLevel(level: WcagLevel): string[] {
+  return [...AXE_TAGS_BY_LEVEL[level]];
+}
 
 export const WCAG_UNDERSTANDING_URLS: Readonly<Record<string, string>> = Object.freeze({
   "1.1.1": `${BASE_URL}non-text-content.html`,

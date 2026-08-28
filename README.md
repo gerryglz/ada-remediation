@@ -30,10 +30,11 @@ This is the easiest way to test a website when you have its URL.
 
 2. Open [http://127.0.0.1:4173](http://127.0.0.1:4173) in your browser.
 3. Paste a complete website URL, such as `https://www.michiganbusiness.org/`.
-4. Leave **Capture screenshots** selected if you want visual evidence.
-5. Select **Crawl same-origin pages** only when you want more than the supplied page and are authorized to crawl the site.
-6. Click **Scan page**.
-7. Review the severity totals, filter the findings, and select one from the **Finding list**. The review workspace separates the result into clearly labeled sections:
+4. Choose the **WCAG 2.2 conformance target**. **Level AA** is the default and the most common organizational target. Higher levels include all available automated checks from the lower levels.
+5. Leave **Capture screenshots** selected if you want visual evidence.
+6. Select **Crawl same-origin pages** only when you want more than the supplied page and are authorized to crawl the site.
+7. Click **Scan page**.
+8. Review the selected target, severity totals, filters, and **Finding list**. The review workspace separates the result into clearly labeled sections:
    - **Finding summary** explains priority and detection confidence, labels requirements as **WCAG 2.2 · Section X.X.X**, links each one to its exact W3C Understanding page, and labels Deque separately as axe scanner documentation
    - **Where it was found** provides clickable source-page links and the affected CSS selector
    - **Visual evidence** shows a compact screenshot thumbnail that opens into a near-full-window view
@@ -41,8 +42,8 @@ This is the easiest way to test a website when you have its URL.
    - **Recommended fix** explains the next change to consider
    - **Code example** compares the detected markup with a suggested starting point when a useful pattern is available
    - **How to verify the fix** provides a retesting checklist with W3C standards links first, followed by the affected source page and optional Deque/axe scanner details
-8. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report.
-9. Press `Ctrl+C` in the terminal when you are finished to stop the dashboard.
+9. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report. Both record the selected conformance target.
+10. Press `Ctrl+C` in the terminal when you are finished to stop the dashboard.
 
 The dashboard runs locally on your computer and binds to `127.0.0.1` by default. It does not upload reports or screenshots to an external service. Screenshots can contain visible page information, including information from authenticated pages, so review them before sharing.
 
@@ -89,6 +90,26 @@ node dist/cli.js scan-url https://www.michiganbusiness.org/ --no-screenshots
 ```
 
 The terminal will list findings or explain why the page was incomplete.
+
+## Choose a WCAG 2.2 conformance target
+
+Rendered website scans support three cumulative targets:
+
+| Target | Automated rules included | Typical use |
+| --- | --- | --- |
+| **Level A** | Available Level A rules | Essential minimum checks and early development feedback |
+| **Level AA** | Available Level A + AA rules | Common legal, policy, procurement, and production target; this is the default |
+| **Level AAA** | Available Level A + AA + AAA rules | Enhanced review for content or services with stricter accessibility goals |
+
+Choose a target in the dashboard or pass `--wcag-level A`, `--wcag-level AA`, or `--wcag-level AAA` to `scan-url` and `scan-site`:
+
+```bash
+node dist/cli.js scan-url https://example.com --wcag-level A
+node dist/cli.js scan-url https://example.com --wcag-level AA
+node dist/cli.js scan-site https://example.com --wcag-level AAA --max-pages 25
+```
+
+The selected target filters axe-core to the automated WCAG rules available for that level. It does not prove conformance at A, AA, or AAA. Many criteria—including much of Level AAA—require human judgment, assistive-technology testing, content review, and testing by people with disabilities. Repository source scans currently run the tool's supported HTML rules and do not use this rendered-scan level filter.
 
 ## Choose how to test a website
 
