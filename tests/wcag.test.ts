@@ -5,6 +5,7 @@ import {
   axeTagsForWcagLevel,
   parseWcagLevel,
   wcagCriterionLabel,
+  wcagLevelFromTags,
   wcagUnderstandingUrl,
 } from "../src/wcag.js";
 
@@ -45,5 +46,16 @@ describe("WCAG references", () => {
     expect(parseWcagLevel(undefined)).toBe("AA");
     expect(parseWcagLevel("aaa")).toBe("AAA");
     expect(() => parseWcagLevel("AAAA")).toThrow("WCAG level must be A, AA, or AAA.");
+  });
+
+  it("identifies the conformance level of an individual axe rule", () => {
+    expect(wcagLevelFromTags(["wcag2a", "wcag111", "cat.text-alternatives"])).toBe("A");
+    expect(wcagLevelFromTags(["wcag21aa", "wcag1410"])).toBe("AA");
+    expect(wcagLevelFromTags(["wcag2aaa", "wcag146"])).toBe("AAA");
+    expect(wcagLevelFromTags(["best-practice"])).toBeUndefined();
+  });
+
+  it("uses the highest level when tags contain more than one level", () => {
+    expect(wcagLevelFromTags(["wcag2a", "wcag2aa", "wcag2aaa"])).toBe("AAA");
   });
 });

@@ -48,6 +48,7 @@ export interface Finding {
   helpUrl?: string;
   title: string;
   severity: Severity;
+  wcagLevel?: WcagLevel;
   wcag: string[];
   location: SourceLocation;
   evidence: string;

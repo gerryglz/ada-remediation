@@ -35,6 +35,8 @@ describe("reporters", () => {
     expect(html).toContain("https://dequeuniversity.com/rules/axe/4.13/image-alt");
     expect(html).toContain("WCAG 2.2 requirements — W3C");
     expect(html).toContain("WCAG 2.2 · Section 1.1.1");
+    expect(html).toContain("wcag-level-badge level-a");
+    expect(html).toContain("WCAG Level A");
     expect(html).toContain("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html");
     expect(html).toContain("View axe scanner rule details on Deque");
     expect(html).toContain("--accent-plum:#ab307e");
@@ -73,5 +75,7 @@ describe("reporters", () => {
     expect(html).toContain("--accent-plum:#ab307e");
     expect(html).toContain("--accent-blue:#6495ed");
     expect(html).toContain(".detail-section::before");
+    expect(html).toContain("wcag-level-badge level-");
+    expect(html).toContain("WCAG Level '+f.wcagLevel");
   });
 });

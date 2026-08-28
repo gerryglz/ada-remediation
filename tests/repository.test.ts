@@ -21,6 +21,7 @@ describe("repository scanner", () => {
     expect(ruleIds.has("form-label")).toBe(true);
     expect(ruleIds.has("duplicate-id")).toBe(true);
     expect(result.findings.every((finding) => finding.location.line && finding.location.file)).toBe(true);
+    expect(result.findings.every((finding) => finding.wcagLevel === "A")).toBe(true);
   });
 
   it("does not report the covered rules for the accessible fixture", async () => {

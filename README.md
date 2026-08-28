@@ -35,7 +35,7 @@ This is the easiest way to test a website when you have its URL.
 6. Select **Crawl same-origin pages** only when you want more than the supplied page and are authorized to crawl the site.
 7. Click **Scan page**.
 8. Review the selected target, severity totals, filters, and **Finding list**. The review workspace separates the result into clearly labeled sections:
-   - **Finding summary** explains priority and detection confidence, labels requirements as **WCAG 2.2 · Section X.X.X**, links each one to its exact W3C Understanding page, and labels Deque separately as axe scanner documentation
+   - **Finding summary** explains priority and detection confidence, shows a **WCAG Level A**, **AA**, or **AAA** badge for the individual rule, labels requirements as **WCAG 2.2 · Section X.X.X**, links each one to its exact W3C Understanding page, and labels Deque separately as axe scanner documentation
    - **Where it was found** provides clickable source-page links and the affected CSS selector
    - **Visual evidence** shows a compact screenshot thumbnail that opens into a near-full-window view
    - **Why this was flagged** separates the rule purpose from the specific failed check
@@ -109,7 +109,9 @@ node dist/cli.js scan-url https://example.com --wcag-level AA
 node dist/cli.js scan-site https://example.com --wcag-level AAA --max-pages 25
 ```
 
-The selected target filters axe-core to the automated WCAG rules available for that level. It does not prove conformance at A, AA, or AAA. Many criteria—including much of Level AAA—require human judgment, assistive-technology testing, content review, and testing by people with disabilities. Repository source scans currently run the tool's supported HTML rules and do not use this rendered-scan level filter.
+The selected target filters axe-core to the automated WCAG rules available for that level. Each finding also receives its own **WCAG Level A**, **AA**, or **AAA** badge based on the rule's WCAG tag. For example, a Level AAA scan can contain findings from all three levels; the individual badges show which level each requirement belongs to.
+
+The WCAG level and severity badges answer different questions: the WCAG badge identifies the requirement's conformance level, while **Critical**, **Serious**, **Moderate**, or **Minor** communicates the automated tool's assessment of user impact. Neither badge proves compliance. Many criteria—including much of Level AAA—require human judgment, assistive-technology testing, content review, and testing by people with disabilities. Repository source scans currently run the tool's supported HTML rules and do not use this rendered-scan level filter; their supported rules are labeled individually.
 
 ## Choose how to test a website
 

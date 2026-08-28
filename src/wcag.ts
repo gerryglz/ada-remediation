@@ -33,6 +33,13 @@ export function axeTagsForWcagLevel(level: WcagLevel): string[] {
   return [...AXE_TAGS_BY_LEVEL[level]];
 }
 
+export function wcagLevelFromTags(tags: readonly string[]): WcagLevel | undefined {
+  if (tags.some((tag) => /^wcag(?:2|21|22)aaa$/.test(tag))) return "AAA";
+  if (tags.some((tag) => /^wcag(?:2|21|22)aa$/.test(tag))) return "AA";
+  if (tags.some((tag) => /^wcag(?:2|21|22)a$/.test(tag))) return "A";
+  return undefined;
+}
+
 export const WCAG_UNDERSTANDING_URLS: Readonly<Record<string, string>> = Object.freeze({
   "1.1.1": `${BASE_URL}non-text-content.html`,
   "1.2.1": `${BASE_URL}audio-only-and-video-only-prerecorded.html`,
