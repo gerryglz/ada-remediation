@@ -10,6 +10,7 @@ describe("reporters", () => {
     result.findings[0].location.url = "https://example.com/problem";
     result.findings[0].location.pageTitle = "Example problem page";
     result.findings[0].helpUrl = "https://dequeuniversity.com/rules/axe/4.13/image-alt";
+    result.findings[0].title = "<object> elements must have alternative text";
     result.findings[0].contrast = {
       foreground: "#777777",
       background: "#ffffff",
@@ -47,6 +48,8 @@ describe("reporters", () => {
     expect(html).toContain("Required human review");
     expect(html).toContain("data-manual-check");
     expect(html).toContain("manual-progress");
+    expect(html).toContain('<code class="inline-code">&lt;object&gt;</code> elements must have alternative text');
+    expect(html).toContain('font-family:ui-monospace');
     expect(html).toContain("https://dequeuniversity.com/rules/axe/4.13/image-alt");
     expect(html).toContain("WCAG 2.2 requirements — W3C");
     expect(html).toContain("WCAG 2.2 · Section 1.1.1");
@@ -86,6 +89,15 @@ describe("reporters", () => {
     expect(html).toContain("scan-collapsed");
     expect(html).toContain("setScanControlsExpanded");
     expect(html).toContain("Show scan controls");
+    expect(html).toContain('id="result-summary-toggle"');
+    expect(html).toContain("Hide summary");
+    expect(html).toContain("summary-collapsed");
+    expect(html).toContain("setResultSummaryExpanded");
+    expect(html).toContain("appendTechnicalText");
+    expect(html).toContain("font-family:ui-monospace");
+    expect(html).toContain(".finding-nav-title{margin-top:11px}");
+    expect(html).toContain("el('span','wcag-level-badge',check.wcagLevel)");
+    expect(html).not.toContain("el('span','wcag-level-badge','Level '+check.wcagLevel)");
     expect(html).toContain("Automated findings");
     expect(html).toContain("Manual checklist");
     expect(html).toContain("renderManualChecks");
