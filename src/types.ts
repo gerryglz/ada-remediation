@@ -20,6 +20,15 @@ export interface VisualEvidence {
   description: string;
 }
 
+export interface CodeSuggestion {
+  title: string;
+  before: string;
+  after: string;
+  rationale: string;
+  reviewRequired: boolean;
+  alternatives?: string[];
+}
+
 export type FixKind =
   | "remove-empty-aria-labelledby"
   | "remove-empty-aria-describedby"
@@ -45,6 +54,7 @@ export interface Finding {
   remediation: string;
   confidence: Confidence;
   kind: FindingKind;
+  codeSuggestion?: CodeSuggestion;
   screenshot?: VisualEvidence;
   safeFix?: SafeFix;
 }

@@ -39,10 +39,13 @@ This is the easiest way to test a website when you have its URL.
    - the HTML that triggered the finding
    - the user impact and potential solution
    - a viewport screenshot with the affected element outlined in charcoal
+   - a rule-aware **before** and **suggested after** code example when a useful pattern is available
 8. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report.
 9. Press `Ctrl+C` in the terminal when you are finished to stop the dashboard.
 
 The dashboard runs locally on your computer and binds to `127.0.0.1` by default. It does not upload reports or screenshots to an external service. Screenshots can contain visible page information, including information from authenticated pages, so review them before sharing.
+
+The results area uses a dashboard layout: select an item from the **Finding list** to open its detailed review workspace. The screenshot is a large thumbnail; click it to open an almost full-window view, then use **Close** or the Escape key to return. Before/after examples are starting points, not automatic fixes. Replace bracketed placeholders, consider the listed alternative, review the surrounding code, and retest the page before accepting a change.
 
 `npm run ui` rebuilds the current source before starting the server. Use it after every pull so you do not accidentally run an older copy from `dist/`.
 

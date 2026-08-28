@@ -21,6 +21,9 @@ describe("reporters", () => {
     expect(html).toContain("Findings in context");
     expect(html).toContain("Example problem page");
     expect(html).toContain("data:image/jpeg;base64,ZmFrZQ==");
+    expect(html).toContain("Before — detected markup");
+    expect(html).toContain("Suggested after — starting point");
+    expect(html).toContain("Open large screenshot");
     const sarif = JSON.parse(sarifReport(result)) as { version: string; runs: unknown[] };
     expect(sarif.version).toBe("2.1.0");
     expect(sarif.runs).toHaveLength(1);
@@ -34,5 +37,7 @@ describe("reporters", () => {
     expect(html).toContain("Capture screenshots");
     expect(html).toContain("Pages tested");
     expect(html).toContain("zero automated axe-core findings");
+    expect(html).toContain("Finding list");
+    expect(html).toContain("image-dialog");
   });
 });

@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import { LEGAL_NOTICE, type Finding, type ScanResult, type Severity, type VisualEvidence } from "../types.js";
 import { fingerprintFinding, TOOL_VERSION } from "../utils.js";
+import { buildCodeSuggestion } from "../suggestions.js";
 
 const require = createRequire(import.meta.url);
 const axePath = require.resolve("axe-core/axe.min.js");
@@ -48,6 +49,7 @@ function normalizeViolation(violation: AxeViolation, node: AxeNode, url: string,
     remediation: `Resolve the failed checks, then verify manually. Rule guidance: ${violation.helpUrl}`,
     confidence: "high",
     kind: "automatic",
+    codeSuggestion: buildCodeSuggestion(violation.id, node.html),
   };
 }
 

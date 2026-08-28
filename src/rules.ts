@@ -1,4 +1,5 @@
 import type { Confidence, Finding, FindingKind, SafeFix, Severity } from "./types.js";
+import { buildCodeSuggestion } from "./suggestions.js";
 import { fingerprintFinding } from "./utils.js";
 
 export interface RuleDefinition {
@@ -129,6 +130,7 @@ export function createFinding(
     ...rule,
     location,
     evidence,
+    codeSuggestion: buildCodeSuggestion(ruleId, evidence),
     safeFix,
   };
 }
