@@ -193,6 +193,11 @@ describe("reporters", () => {
     expect(html).toContain("Copy prompt");
     expect(html).toContain("implementation technology is unknown");
     expect(html).toContain("sidebar-components{position:static");
+    expect(html).toContain("@media(hover:hover)");
+    expect(html).toContain(".component-group:has(.component-group-nav:hover)");
+    expect(html).toContain(".finding-nav:hover");
+    expect(html).toContain("text-decoration-thickness:2px");
+    expect(html).toContain("@media(prefers-reduced-motion:reduce)");
     expect(html).not.toContain("Child findings shown below");
     expect(html).toContain("Corrections shared by multiple findings");
     expect(html).toContain("Child findings and element-level fixes");
