@@ -33,14 +33,14 @@ This is the easiest way to test a website when you have its URL.
 4. Choose the **WCAG 2.2 conformance target**. **Level AA** is the default and the most common organizational target. Higher levels include all available automated checks from the lower levels.
 5. Leave **Capture screenshots** selected if you want visual evidence.
 6. Select **Crawl same-origin pages** only when you want more than the supplied page and are authorized to crawl the site.
-7. Click **Scan page**.
+7. Click **Scan page**. The progress bar reports the live phase—opening the page, running axe-core, collecting evidence and screenshots, or building the report—plus the current page and an estimated percentage. For crawls, the percentage is based on the selected page limit and may finish early when the site has fewer eligible links.
 8. When a scan finishes, the scan controls collapse automatically so the report can use the full browser height. Select **Show scan controls** in the header whenever you want to change the URL, WCAG target, crawl option, or screenshot option and run another scan.
 9. Review the selected target, severity totals, and **Automated findings**. Select **Hide summary** to collapse the totals and testing notice into a compact bar when you want more vertical space; select **Show summary** to restore them. On desktop, the finding queue and selected finding scroll independently so you can keep your place in both columns. Use the separate **Impact severity** and **WCAG level** controls together to narrow findings—for example, Serious + AAA. On smaller screens, the queue and details stack into one readable page. The review workspace separates the selected result into clearly labeled sections:
    - **Finding summary** explains priority and detection confidence, shows an **A**, **AA**, or **AAA** badge for the individual rule, labels requirements as **WCAG 2.2 · Section X.X.X**, links each one to its exact W3C Understanding page, and labels Deque separately as axe scanner documentation
    - **Where it was found** provides clickable source-page links and the affected CSS selector
    - **Visual evidence** shows a compact screenshot thumbnail that opens into a near-full-window view
    - **Why this was flagged** separates the rule purpose from the specific failed check
-   - **Recommended fix** explains the next change to consider
+   - **Recommended fix** starts with axe-core's exact failed condition, then separates **What to inspect** from **What to change**. Rule-specific advice and the affected HTML element are included even when a safe generic patch is not possible
    - **Code example** compares the detected markup with a suggested starting point when a useful pattern is available
    - **How to verify the fix** provides a retesting checklist with W3C standards links first, followed by the affected source page and optional Deque/axe scanner details
 10. For an identified text-contrast issue, review **Color contrast evidence** for the computed foreground and background colors, measured ratio, required ratio, and font information. The suggested CSS uses placeholders for approved design tokens; it does not invent production colors.
@@ -263,7 +263,7 @@ See [the GitHub Actions example](docs/github-actions.yml) for SARIF upload and e
 
 ### Reports
 
-Every finding uses a normalized schema containing severity, WCAG references, location, evidence, impact, remediation guidance, confidence, detection type, and safe-fix metadata. Supported formats are:
+Every finding uses a normalized schema containing severity, WCAG references, location, evidence, impact, structured remediation guidance (`inspect`, `change`, and `verify` steps), confidence, detection type, and safe-fix metadata. Supported formats are:
 
 - `terminal` for developer feedback
 - `json` for automation and remediation

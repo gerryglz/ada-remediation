@@ -5,6 +5,7 @@ import { fingerprintFinding, TOOL_VERSION } from "../utils.js";
 import { buildCodeSuggestion } from "../suggestions.js";
 import { axeTagsForWcagLevel, DEFAULT_WCAG_LEVEL, wcagLevelFromTags } from "../wcag.js";
 import { manualReviewChecklist } from "../manual.js";
+import { buildRemediationGuidance, remediationSummary } from "../guidance.js";
 
 const require = createRequire(import.meta.url);
 const axePath = require.resolve("axe-core/axe.min.js");
@@ -38,6 +39,15 @@ function normalizeViolation(violation: AxeViolation, node: AxeNode, url: string,
   const selector = node.target.join(" ");
   const location = { url, selector, pageTitle };
   const severity: Severity = violation.impact ?? "moderate";
+  const codeSuggestion = buildCodeSuggestion(violation.id, node.html);
+  const remediationGuidance = buildRemediationGuidance({
+    ruleId: violation.id,
+    title: violation.help,
+    failureSummary: node.failureSummary,
+    evidence: node.html,
+    selector,
+    codeSuggestion,
+  });
   return {
     fingerprint: fingerprintFinding(violation.id, location, node.html),
     ruleId: violation.id,
@@ -50,10 +60,11 @@ function normalizeViolation(violation: AxeViolation, node: AxeNode, url: string,
     evidence: node.html,
     explanation: violation.description,
     impact: node.failureSummary ?? `axe-core classified this issue as ${severity}.`,
-    remediation: "Resolve the failed checks, apply the most appropriate code change for this component, and then verify the result manually.",
+    remediation: remediationSummary(remediationGuidance),
+    remediationGuidance,
     confidence: "high",
     kind: "automatic",
-    codeSuggestion: buildCodeSuggestion(violation.id, node.html),
+    codeSuggestion,
   };
 }
 
@@ -139,8 +150,11 @@ async function scanPage(
   captureScreenshots: boolean,
   screenshotBudget: { remaining: number },
   axeTags: string[],
+  reportStage: (fraction: number, phase: UrlScanProgress["phase"], message: string) => void,
 ): Promise<{ findings: Finding[]; links: string[] }> {
+  reportStage(0.05, "loading", `Opening ${url}`);
   await page.goto(url, { waitUntil: "networkidle", timeout });
+  reportStage(0.32, "analyzing", "Page loaded. Running axe-core accessibility checks.");
   await page.addScriptTag({ path: axePath });
   const result = await page.evaluate(async (runOnlyTags) => {
     const axe = (window as unknown as {
@@ -157,14 +171,26 @@ async function scanPage(
   }, axeTags);
 
   const findings: Finding[] = [];
+  const totalNodes = result.violations.reduce((total, violation) => total + violation.nodes.length, 0);
+  let processedNodes = 0;
+  reportStage(0.55, "evidence", totalNodes ? `Reviewing ${totalNodes} detected issue${totalNodes === 1 ? "" : "s"} and collecting evidence.` : "No automated violations found. Finalizing this page.");
   for (const violation of result.violations) {
     for (const node of violation.nodes) {
       const finding = normalizeViolation(violation, node, url, result.pageTitle);
       if (["color-contrast", "color-contrast-enhanced"].includes(finding.ruleId)) {
         finding.contrast = await captureContrastEvidence(page, finding.location.selector!, node.failureSummary);
         finding.codeSuggestion = buildCodeSuggestion(finding.ruleId, node.html, finding.contrast);
+        finding.remediationGuidance = buildRemediationGuidance({
+          ruleId: finding.ruleId,
+          title: finding.title,
+          failureSummary: node.failureSummary,
+          evidence: node.html,
+          selector: finding.location.selector!,
+          codeSuggestion: finding.codeSuggestion,
+        });
+        finding.remediation = remediationSummary(finding.remediationGuidance);
         if (finding.contrast?.ratio && finding.contrast.requiredRatio) {
-          finding.remediation = `Change the foreground or background color so the measured ${finding.contrast.ratio}:1 contrast reaches at least ${finding.contrast.requiredRatio}:1 in every interactive state.`;
+          finding.remediation = `The measured ${finding.contrast.ratio}:1 contrast must reach at least ${finding.contrast.requiredRatio}:1. Change the foreground or background color in every interactive state, then measure the computed result again.`;
         }
       }
       if (captureScreenshots && screenshotBudget.remaining > 0) {
@@ -172,8 +198,12 @@ async function scanPage(
         if (finding.screenshot) screenshotBudget.remaining -= 1;
       }
       findings.push(finding);
+      processedNodes += 1;
+      reportStage(0.55 + 0.4 * (processedNodes / Math.max(1, totalNodes)), "evidence", `Collected evidence for ${processedNodes} of ${totalNodes} detected issues.`);
     }
   }
+
+  reportStage(1, "scanning", `Finished ${url}`);
 
   return {
     findings,
@@ -189,6 +219,17 @@ export interface UrlScanOptions {
   captureScreenshots?: boolean;
   screenshotLimit?: number;
   wcagLevel?: WcagLevel;
+  onProgress?: (progress: UrlScanProgress) => void;
+}
+
+export interface UrlScanProgress {
+  phase: "idle" | "starting" | "loading" | "analyzing" | "evidence" | "scanning" | "finalizing" | "complete" | "error";
+  percent: number;
+  message: string;
+  currentUrl?: string;
+  pagesCompleted: number;
+  totalPages: number;
+  findingsFound: number;
 }
 
 export async function scanUrls(targets: string[], options: UrlScanOptions = {}): Promise<ScanResult> {
@@ -205,6 +246,18 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
   const queued = targets.map((target) => new URL(target).href);
   const allowedOrigins = new Set(queued.map((target) => new URL(target).origin));
   const visited = new Set<string>();
+  const totalPages = Math.max(1, maxPages);
+  let reportedPercent = 0;
+  const emitProgress = (progress: Omit<UrlScanProgress, "percent"> & { percent: number }): void => {
+    reportedPercent = Math.max(reportedPercent, Math.min(100, Math.round(progress.percent)));
+    try {
+      options.onProgress?.({ ...progress, percent: reportedPercent });
+    } catch {
+      // Progress reporting must never interrupt a scan.
+    }
+  };
+
+  emitProgress({ phase: "starting", percent: 2, message: "Starting the browser and preparing the accessibility engine.", pagesCompleted: 0, totalPages, findingsFound: 0 });
 
   try {
     browser = await chromium.launch({ headless: true });
@@ -213,13 +266,26 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
       viewport: { width: 1440, height: 900 },
     });
     const page = await context.newPage();
+    emitProgress({ phase: "starting", percent: 5, message: "Browser ready. Preparing the first page.", pagesCompleted: 0, totalPages, findingsFound: 0 });
 
     while (queued.length > 0 && visited.size < maxPages) {
       const url = queued.shift()!;
       if (visited.has(url)) continue;
       visited.add(url);
+      const pageIndex = visited.size - 1;
+      const reportStage = (fraction: number, phase: UrlScanProgress["phase"], message: string): void => {
+        emitProgress({
+          phase,
+          percent: 5 + ((pageIndex + Math.max(0, Math.min(1, fraction))) / totalPages) * 88,
+          message: `${message} Page ${visited.size} of up to ${totalPages}.`,
+          currentUrl: url,
+          pagesCompleted: Math.max(0, visited.size - incomplete.length - 1),
+          totalPages,
+          findingsFound: findings.length,
+        });
+      };
       try {
-        const pageResult = await scanPage(page, url, timeout, options.captureScreenshots ?? true, screenshotBudget, axeTags);
+        const pageResult = await scanPage(page, url, timeout, options.captureScreenshots ?? true, screenshotBudget, axeTags, reportStage);
         findings.push(...pageResult.findings);
         if (options.crawl) {
           for (const href of pageResult.links) {
@@ -237,13 +303,24 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
       } catch (error) {
         incomplete.push({ url, reason: error instanceof Error ? error.message : String(error) });
       }
+      emitProgress({
+        phase: "scanning",
+        percent: 5 + (visited.size / totalPages) * 88,
+        message: `Completed ${visited.size} of up to ${totalPages} pages. ${findings.length} finding${findings.length === 1 ? "" : "s"} collected so far.`,
+        currentUrl: url,
+        pagesCompleted: visited.size - incomplete.length,
+        totalPages,
+        findingsFound: findings.length,
+      });
     }
   } finally {
     await context?.close();
     await browser?.close();
   }
 
-  return {
+  emitProgress({ phase: "finalizing", percent: 96, message: "Building the report and manual review checklist.", pagesCompleted: visited.size - incomplete.length, totalPages, findingsFound: findings.length });
+
+  const scanResult: ScanResult = {
     schemaVersion: "1.0",
     metadata: {
       scanner: options.crawl ? "site" : "url",
@@ -259,4 +336,6 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
     manualChecks: manualReviewChecklist(wcagLevel),
     notice: LEGAL_NOTICE,
   };
+  emitProgress({ phase: "complete", percent: 100, message: "Scan complete. The report is ready for review.", pagesCompleted: scanResult.metadata.pagesOrFilesScanned, totalPages, findingsFound: findings.length });
+  return scanResult;
 }
