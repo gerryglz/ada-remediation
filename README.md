@@ -54,7 +54,7 @@ The results area is a full-height application workspace: the compact header and 
 
 The **Manual checklist** is deliberately separate from automated findings. A TODO is not a detected failure; it identifies an accessibility requirement that needs human judgment or interaction testing. Level A scans receive the essential checklist, Level AA adds common production checks such as reflow and status messages, and Level AAA adds enhanced review tasks.
 
-Code snippets, CSS selectors, scanner rule IDs, and HTML-tag references such as `<object>` use the report's monospace type treatment. Manual conformance badges display only **A**, **AA**, or **AAA** so they match automated finding badges.
+Code snippets, CSS selectors, scanner rule IDs, HTML-tag references such as `<object>`, and attribute/value pairs such as `role="menuitem"` use the report's monospace technical-chip treatment. The **Recommended fix** section places the failed condition in a distinct **Start here** callout; when axe reports required ARIA parent roles, their expected `role` values appear as separate chips. Manual conformance badges display only **A**, **AA**, or **AAA** so they match automated finding badges.
 
 W3C is presented as the primary accessibility standards source. Deque links are secondary and explain the axe-core rule that produced an automated finding; they do not replace the linked WCAG requirement.
 

@@ -13,7 +13,7 @@ describe("reporters", () => {
     result.findings[0].title = "<object> elements must have alternative text";
     result.findings[0].remediationGuidance = {
       inspect: ["Failed condition: <object> has no accessible alternative."],
-      change: ["Add an accessible name and an equivalent fallback link."],
+      change: ['For an embedded image, add role="img" with an accessible name and an equivalent fallback link.'],
       verify: ["Run the object-alt check again and test the fallback with a keyboard."],
     };
     result.findings[0].contrast = {
@@ -48,6 +48,10 @@ describe("reporters", () => {
     expect(html).toContain("How to verify the fix");
     expect(html).toContain("What to inspect");
     expect(html).toContain("What to change");
+    expect(html).toContain('class="remediation-start"');
+    expect(html).toContain("Start here");
+    expect(html).toContain('<code class="inline-code">role=&quot;img&quot;</code>');
+    expect(html).not.toContain('<code class="inline-code">For</code>');
     expect(html).toContain("Run the object-alt check again");
     expect(html).toContain("Color contrast evidence");
     expect(html).toContain("Measured ratio");
@@ -111,7 +115,10 @@ describe("reporters", () => {
     expect(html).toContain("What to inspect");
     expect(html).toContain("What to change");
     expect(html).toContain("appendTechnicalText");
-    expect(html).toContain("split(/(<\\/?[a-z][^>]*>)/gi)");
+    expect(html).toContain("aria-[a-z0-9-]+");
+    expect(html).toContain("remediationStart");
+    expect(html).toContain("Expected parent roles");
+    expect(html).toContain("technical-values");
     expect(html).toContain("rel=\"icon\"");
     expect(html).toContain("data:image/svg+xml");
     expect(html).toContain("font-family:ui-monospace");
