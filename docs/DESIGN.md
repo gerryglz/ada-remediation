@@ -188,10 +188,15 @@ What makes Lovable's visual system distinctive is its opacity-driven depth model
 - A compact 56px application header keeps product identity, the local-mode label, and the scan-controls toggle available without competing with report content.
 - The scan toolbar is a compact horizontal row on desktop. It collapses automatically after a successful scan and remains recoverable through the clearly labeled **Show scan controls** button.
 - The scan summary is a narrow status band containing the target URL, WCAG target, exports, totals, and automated-testing limitation.
+- The status band includes a **Hide summary / Show summary** control. Its collapsed state retains the scan title, source URL, and recovery control while removing metrics, exports, target explanation, and notices from the vertical flow.
 - The remaining height belongs to a persistent two-pane review workspace: a 330–380px finding queue on the left and a flexible selected-finding detail pane on the right.
+- The queue begins with two explicit views: **Automated findings** and **Manual checklist**. The active view uses the dark selected treatment; manual TODO and completed states use orange and green semantically.
+- Manual tasks remain visually and semantically separate from detected failures. Each task shows its category, target level, test procedure, W3C references, completion control, and progress count.
+- Automated contrast findings add a blue informational evidence grid for foreground color, background color, measured ratio, required ratio, and font data. Suggested colors remain design-token placeholders until a reviewer approves actual values.
 - The finding queue and selected-finding detail pane scroll independently. Changing the selected finding resets the detail pane to its beginning without losing the queue position.
 - At 900px and below, the page returns to normal document scrolling and stacks the finding queue above the detail view. At 600px and below, scan inputs, summary metrics, and metadata cards use a single-column or compact two-column layout.
 - Use borders and section dividers for structure; do not add heavy shadows or decorative panels that reduce usable report space.
+- Use the monospace stack for code blocks, selectors, rule IDs, and HTML-tag fragments embedded in otherwise editorial titles. Add visible spacing between badge rows and finding titles.
 
 ### Spacing System
 - Base unit: 8px
