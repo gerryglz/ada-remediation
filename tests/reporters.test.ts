@@ -184,6 +184,11 @@ describe("reporters", () => {
     expect(html).toContain("function findingNav(f)");
     expect(html).toContain("queueHeading.textContent='Finding list'");
     expect(html).toContain("Expand any child below");
+    expect(html).toContain("issue-category-badge");
+    expect(html).toContain("AI remediation prompt");
+    expect(html).toContain("Copy prompt");
+    expect(html).toContain("implementation technology is unknown");
+    expect(html).toContain("sidebar-components{position:static");
     expect(html).not.toContain("Child findings shown below");
     expect(html).toContain("Shared corrections");
     expect(html).toContain("Child findings and element-level fixes");

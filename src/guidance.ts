@@ -1,4 +1,4 @@
-import type { CodeSuggestion, RemediationGuidance } from "./types.js";
+import type { CodeSuggestion, Finding, FindingIssueCategory, RemediationGuidance } from "./types.js";
 
 export interface GuidanceInput {
   ruleId: string;
@@ -124,4 +124,57 @@ export function buildRemediationGuidance(input: GuidanceInput): RemediationGuida
 export function remediationSummary(guidance: RemediationGuidance): string {
   const failedCondition = guidance.inspect.find((item) => item.startsWith("Failed condition:"));
   return [failedCondition, guidance.change[0]].filter(Boolean).join(" ");
+}
+
+export function findingIssueCategory(finding: Pick<Finding, "ruleId" | "title" | "evidence" | "location">): FindingIssueCategory {
+  const context = [finding.ruleId, finding.title, finding.evidence, finding.location.selector].filter(Boolean).join(" ").toLowerCase();
+  if (/contrast|color|colour|link-in-text-block/.test(context)) return "Color";
+  if (/aria|\brole\b/.test(context)) return "ARIA";
+  if (/keyboard|focus|tabindex|bypass|skip-link/.test(context)) return "Keyboard";
+  if (/image|\bimg\b|svg|video|audio|object|alt\b|caption/.test(context)) return "Media";
+  if (/form|input|select|textarea|fieldset|legend|label/.test(context)) return "Forms";
+  if (/\blang\b|language|html-has-lang|valid-lang/.test(context)) return "Language";
+  if (/motion|animation|blink|marquee|meta-refresh/.test(context)) return "Motion";
+  if (/navigation|\bnav\b|link|anchor/.test(context)) return "Navigation";
+  if (/heading|landmark|region|list|table|definition|document-title|page-has-heading/.test(context)) return "Structure";
+  return "Content";
+}
+
+export function buildRemediationPrompt(finding: Finding): string {
+  const guidance = finding.remediationGuidance;
+  const location = finding.location.url
+    ? `Page URL: ${finding.location.url}`
+    : `Source file: ${finding.location.file ?? "Locate this finding in the project"}${finding.location.line ? `:${finding.location.line}` : ""}`;
+  const changes = guidance?.change?.length ? guidance.change : [finding.remediation];
+  const verification = guidance?.verify?.length
+    ? guidance.verify
+    : ["Retest the affected element with the automated rule, keyboard navigation, and relevant assistive technology."];
+  return [
+    "Fix the following web accessibility finding in this project.",
+    "",
+    "The implementation technology is unknown. First identify the framework, CMS, template, component, or stylesheet that produces the affected rendered element. Follow the project's existing conventions and make the change in the reusable source component when appropriate; do not patch only generated output unless that is the actual maintained source.",
+    "",
+    `Issue category: ${finding.issueCategory ?? findingIssueCategory(finding)}`,
+    `Finding: ${finding.title}`,
+    `Severity: ${finding.severity}`,
+    `WCAG 2.2 criteria: ${finding.wcag.length ? finding.wcag.join(", ") : "Not mapped"}`,
+    `Automated rule: ${finding.ruleId}`,
+    location,
+    `Affected selector: ${finding.location.selector ?? "Not provided"}`,
+    `Detected markup: ${finding.evidence}`,
+    `Failed condition: ${finding.impact}`,
+    "",
+    "Recommended direction:",
+    ...changes.map((item) => `- ${item}`),
+    ...(finding.codeSuggestion ? ["", `Suggested starting point: ${finding.codeSuggestion.after}`] : []),
+    "",
+    "Requirements:",
+    "- Preserve the intended content, visual design, and user behavior unless the accessibility correction requires a deliberate change.",
+    "- Prefer native HTML semantics before adding ARIA. Do not hide the element, suppress the scanner rule, or weaken the test merely to remove the finding.",
+    "- Check whether the same reusable component or pattern appears elsewhere and apply the correction consistently.",
+    "- Explain which source files were changed and why the solution is appropriate for the detected technology.",
+    "",
+    "Verification:",
+    ...verification.map((item) => `- ${item}`),
+  ].join("\n");
 }

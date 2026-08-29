@@ -5,7 +5,7 @@ import { fingerprintFinding, TOOL_VERSION } from "../utils.js";
 import { buildCodeSuggestion } from "../suggestions.js";
 import { axeTagsForWcagLevel, DEFAULT_WCAG_LEVEL, wcagLevelFromTags } from "../wcag.js";
 import { manualReviewChecklist } from "../manual.js";
-import { buildRemediationGuidance, remediationSummary } from "../guidance.js";
+import { buildRemediationGuidance, buildRemediationPrompt, findingIssueCategory, remediationSummary } from "../guidance.js";
 import { buildFindingGroups, consolidateCommonFindings } from "../findings.js";
 import { navigateForAccessibilityScan, PageNavigationError } from "../navigation.js";
 
@@ -391,7 +391,11 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
 
   emitProgress({ phase: "finalizing", percent: 96, message: "Building the report and manual review checklist.", pagesCompleted: visited.size - incomplete.length, totalPages, findingsFound: findings.length });
 
-  const consolidatedFindings = consolidateCommonFindings(findings);
+  const consolidatedFindings = consolidateCommonFindings(findings).map((finding) => {
+    const issueCategory = findingIssueCategory(finding);
+    const categorizedFinding = { ...finding, issueCategory };
+    return { ...categorizedFinding, remediationPrompt: buildRemediationPrompt(categorizedFinding) };
+  });
   const findingGroups = buildFindingGroups(consolidatedFindings);
   const scanResult: ScanResult = {
     schemaVersion: "1.0",

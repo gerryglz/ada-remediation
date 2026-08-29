@@ -131,7 +131,21 @@ export interface Finding {
   codeSuggestion?: CodeSuggestion;
   screenshot?: VisualEvidence;
   safeFix?: SafeFix;
+  issueCategory?: FindingIssueCategory;
+  remediationPrompt?: string;
 }
+
+export type FindingIssueCategory =
+  | "ARIA"
+  | "Color"
+  | "Content"
+  | "Forms"
+  | "Keyboard"
+  | "Language"
+  | "Media"
+  | "Motion"
+  | "Navigation"
+  | "Structure";
 
 export interface ScanMetadata {
   scanner: "repository" | "url" | "site";

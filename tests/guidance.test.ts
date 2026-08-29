@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { buildRemediationGuidance, remediationSummary } from "../src/guidance.js";
+import { buildRemediationGuidance, buildRemediationPrompt, findingIssueCategory, remediationSummary } from "../src/guidance.js";
 import { buildCodeSuggestion } from "../src/suggestions.js";
+import type { Finding } from "../src/types.js";
 
 describe("remediation guidance", () => {
   it("preserves the exact axe failure and pairs it with a concrete code direction", () => {
@@ -32,5 +33,31 @@ describe("remediation guidance", () => {
     expect(guidance.inspect[0]).toContain("<h4>");
     expect(guidance.change.join(" ")).toContain("document outline");
     expect(guidance.verify).toHaveLength(3);
+  });
+
+  it("classifies findings and builds a technology-agnostic coding-agent prompt", () => {
+    const finding: Finding = {
+      fingerprint: "contrast",
+      ruleId: "color-contrast",
+      title: "Elements must meet minimum color contrast ratio thresholds",
+      severity: "serious",
+      wcagLevel: "AA",
+      wcag: ["WCAG 1.4.3"],
+      location: { url: "https://example.com/", selector: ".hero strong" },
+      evidence: '<strong style="color:#999">Read more</strong>',
+      explanation: "Text must have sufficient contrast.",
+      impact: "Element has insufficient color contrast of 2.8:1.",
+      remediation: "Increase the contrast ratio.",
+      remediationGuidance: { inspect: ["Inspect computed colors."], change: ["Update the foreground or background color."], verify: ["Measure the final computed contrast ratio."] },
+      confidence: "high",
+      kind: "automatic",
+    };
+
+    expect(findingIssueCategory(finding)).toBe("Color");
+    const prompt = buildRemediationPrompt(finding);
+    expect(prompt).toContain("implementation technology is unknown");
+    expect(prompt).toContain("Issue category: Color");
+    expect(prompt).toContain("Affected selector: .hero strong");
+    expect(prompt).toContain("Do not hide the element, suppress the scanner rule");
   });
 });
