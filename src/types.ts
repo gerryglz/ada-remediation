@@ -17,6 +17,16 @@ export interface FindingOccurrence {
   location: SourceLocation;
 }
 
+export type FindingComponentCategory =
+  | "Navigation menu"
+  | "Header"
+  | "Footer"
+  | "Form"
+  | "Table"
+  | "Image or media"
+  | "Interactive control"
+  | "Page content";
+
 export interface VisualEvidence {
   dataUrl: string;
   mimeType: "image/jpeg" | "image/png";
@@ -90,6 +100,7 @@ export interface Finding {
   confidence: Confidence;
   kind: FindingKind;
   scope?: "page" | "common";
+  componentCategory?: FindingComponentCategory;
   occurrences?: FindingOccurrence[];
   contrast?: ContrastEvidence;
   codeSuggestion?: CodeSuggestion;

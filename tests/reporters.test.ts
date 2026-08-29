@@ -33,6 +33,7 @@ describe("reporters", () => {
       description: "The affected image is outlined in charcoal.",
     };
     result.findings[0].scope = "common";
+    result.findings[0].componentCategory = "Navigation menu";
     result.findings[0].occurrences = [
       { fingerprint: result.findings[0].fingerprint, location: { ...result.findings[0].location } },
       {
@@ -47,7 +48,7 @@ describe("reporters", () => {
     result.metadata.findingOccurrences = result.findings.length + 1;
     expect(terminalReport(result)).toContain("Conformance target: WCAG 2.2 Level AAA");
     expect(terminalReport(result)).toContain("Automated results cannot certify");
-    expect(terminalReport(result)).toContain("Common component: 2 pages / 2 occurrences");
+    expect(terminalReport(result)).toContain("Recurring Navigation menu: 2 pages / 2 occurrences");
     const html = htmlReport(result);
     expect(html).toContain("Findings in context");
     expect(html).toContain("Conformance target:</strong> WCAG 2.2 Level AAA");
@@ -58,7 +59,10 @@ describe("reporters", () => {
     expect(html).toContain("Open large screenshot");
     expect(html).toContain("Finding summary");
     expect(html).toContain("Where it was found");
-    expect(html).toContain("COMMON · 2 PAGES");
+    expect(html).toContain("Navigation menu</span>");
+    expect(html).toContain(".component-badge{border:1px solid var(--accent-orange)");
+    expect(html).toContain("2 PAGES");
+    expect(html).not.toContain("COMMON · 2 PAGES");
     expect(html).toContain("Affected pages");
     expect(html).toContain("Second affected page");
     expect(html).toContain("2 total occurrences");
@@ -151,7 +155,10 @@ describe("reporters", () => {
     expect(html).toContain("Manual tasks");
     expect(html).toContain("Unique findings");
     expect(html).toContain("Occurrences");
-    expect(html).toContain("COMMON · '+pages+' PAGES");
+    expect(html).toContain("component-badge");
+    expect(html).toContain("page-count-badge");
+    expect(html).toContain("findingComponentCategory");
+    expect(html).not.toContain("'COMMON · '+pages+' PAGES'");
     expect(html).toContain("Affected pages");
     expect(html).toContain("enhanceCommonFinding");
     expect(html).toContain("item.stage+' stage'");

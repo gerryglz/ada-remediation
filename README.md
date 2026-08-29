@@ -222,7 +222,7 @@ The crawler waits for the initial HTML (`DOMContentLoaded`), allows a short rend
 
 The crawler stays on the starting origin. It ignores external origins, URL fragments, malformed URLs, and non-HTTP links. A crawl may not discover pages that are unlinked, require form submissions, or appear only after complex interactions; scan those URLs explicitly.
 
-When the same axe rule reports the same CSS selector and detected markup on two or more tested URLs, the report consolidates those copies into one **COMMON** finding. Its **Affected pages** section links every page where it appeared. Fix the owning shared component—such as the site header, menu, or footer—then retest all listed pages. The summary separates **Unique findings** from total **Occurrences**, so consolidation does not hide how widespread an issue is. “Common” means recurring within the pages tested by this crawl; it does not claim that every page on the full site contains the issue.
+When the same axe rule reports the same CSS selector and detected markup on two or more tested URLs, the report consolidates those copies into one recurring finding. Two compact badges identify the likely component—such as **NAVIGATION MENU**, **FORM**, or **PAGE CONTENT**—and the number of affected pages. Its **Affected pages** section links every page where it appeared. Fix the owning shared component, then retest all listed pages. The summary separates **Unique findings** from total **Occurrences**, so consolidation does not hide how widespread an issue is. Recurring means repeated within the pages tested by this crawl; it does not claim that every page on the full site contains the issue.
 
 ## Testing method 6: scan authenticated pages
 

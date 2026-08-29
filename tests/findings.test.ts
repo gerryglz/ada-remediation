@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { affectedPageCount, consolidateCommonFindings, findingOccurrenceCount } from "../src/findings.js";
+import { affectedPageCount, consolidateCommonFindings, findingComponentCategory, findingOccurrenceCount } from "../src/findings.js";
 import type { Finding } from "../src/types.js";
 
 function finding(url: string, selector = "nav > button"): Finding {
@@ -30,6 +30,7 @@ describe("common findings", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].scope).toBe("common");
+    expect(result[0].componentCategory).toBe("Navigation menu");
     expect(findingOccurrenceCount(result[0])).toBe(3);
     expect(affectedPageCount(result[0])).toBe(3);
     expect(result[0].occurrences?.map((item) => item.location.url)).toEqual([
@@ -37,6 +38,12 @@ describe("common findings", () => {
       "https://example.com/about",
       "https://example.com/contact",
     ]);
+  });
+
+  it("assigns useful component categories instead of a generic common label", () => {
+    expect(findingComponentCategory(finding("https://example.com/"))).toBe("Navigation menu");
+    expect(findingComponentCategory({ ...finding("https://example.com/"), ruleId: "image-alt", title: "Images need text", evidence: '<img src="hero.jpg">', location: { url: "https://example.com/", selector: ".hero-image" } })).toBe("Image or media");
+    expect(findingComponentCategory({ ...finding("https://example.com/"), ruleId: "heading-order", title: "Heading order", evidence: "<h3>Details</h3>", location: { url: "https://example.com/", selector: "main h3" } })).toBe("Page content");
   });
 
   it("does not merge different selectors or duplicates confined to one page", () => {
