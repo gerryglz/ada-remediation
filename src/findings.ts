@@ -1,4 +1,5 @@
 import type { Finding, FindingComponentCategory, FindingGroup, FindingOccurrence } from "./types.js";
+import { buildGroupRemediationPrompt, findingRemediationTheme } from "./guidance.js";
 
 function normalized(value: string | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
@@ -70,19 +71,48 @@ export function buildFindingGroups(findings: Finding[]): FindingGroup[] {
     grouped.set(finding.component.key, group);
   }
 
-  return [...grouped.entries()].flatMap(([key, members], index) => {
+  const componentGroups = [...grouped.entries()].flatMap(([key, members], index) => {
     if (members.length < 2) return [];
     const component = members[0].component!;
-    return [{
+    const group: FindingGroup = {
       id: `component-${index + 1}-${key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48)}`,
+      kind: "component",
       name: component.name,
       category: component.category,
       ...(component.selector ? { selector: component.selector } : {}),
       findingFingerprints: members.map((finding) => finding.fingerprint),
       pages: [...new Set(members.flatMap(findingPages))],
       sharedCorrections: groupCorrections(members),
-    }];
+    };
+    group.remediationPrompt = buildGroupRemediationPrompt(group, members);
+    return [group];
   });
+
+  const componentFingerprints = new Set(componentGroups.flatMap((group) => group.findingFingerprints));
+  const patterns = new Map<string, { name: string; category: ReturnType<typeof findingRemediationTheme>["category"]; members: Finding[] }>();
+  for (const finding of findings) {
+    if (componentFingerprints.has(finding.fingerprint)) continue;
+    const theme = findingRemediationTheme(finding);
+    const pattern = patterns.get(theme.key) ?? { name: theme.name, category: theme.category, members: [] };
+    pattern.members.push(finding);
+    patterns.set(theme.key, pattern);
+  }
+  const patternGroups = [...patterns.entries()].flatMap(([key, pattern], index) => {
+    if (pattern.members.length < 2) return [];
+    const group: FindingGroup = {
+      id: `pattern-${index + 1}-${key}`,
+      kind: "pattern",
+      name: pattern.name,
+      category: pattern.category,
+      findingFingerprints: pattern.members.map((finding) => finding.fingerprint),
+      pages: [...new Set(pattern.members.flatMap(findingPages))],
+      sharedCorrections: groupCorrections(pattern.members),
+    };
+    group.remediationPrompt = buildGroupRemediationPrompt(group, pattern.members);
+    return [group];
+  });
+
+  return [...componentGroups, ...patternGroups];
 }
 
 export function findingOccurrenceCount(finding: Finding): number {

@@ -5,7 +5,7 @@ import { escapeHtml, severityRank } from "../utils.js";
 import { WCAG_VERSION, wcagCriterionLabel, wcagUnderstandingUrl } from "../wcag.js";
 import { manualReviewChecklist } from "../manual.js";
 import { affectedPageCount, buildFindingGroups, findingComponentCategory, findingOccurrenceCount } from "../findings.js";
-import { buildRemediationPrompt, findingIssueCategory } from "../guidance.js";
+import { buildGroupRemediationPrompt, buildRemediationPrompt, findingIssueCategory } from "../guidance.js";
 
 export type ReportFormat = "terminal" | "json" | "html" | "sarif";
 
@@ -67,9 +67,9 @@ export function terminalReport(result: ScanResult): string {
   ];
   const componentGroups = result.findingGroups?.length ? result.findingGroups : buildFindingGroups(result.findings);
   if (componentGroups.length) {
-    lines.push("Component groups:");
+    lines.push("Finding groups:");
     for (const group of componentGroups) {
-      lines.push(`  ${group.name}: ${group.findingFingerprints.length} findings / ${group.pages.length} pages / ${group.sharedCorrections.length} shared corrections`);
+      lines.push(`  ${group.kind === "pattern" ? "Issue pattern" : "Component"} — ${group.name}: ${group.findingFingerprints.length} findings / ${group.pages.length} pages / ${group.sharedCorrections.length} shared corrections`);
     }
     lines.push("");
   }
@@ -164,12 +164,13 @@ function componentGroupsHtml(result: ScanResult): string {
   const groups = result.findingGroups?.length ? result.findingGroups : buildFindingGroups(result.findings);
   if (!groups.length) return "";
   const findingByFingerprint = new Map(result.findings.map((finding) => [finding.fingerprint, finding]));
-  return `<section class="component-groups" aria-labelledby="component-groups-heading"><div class="component-groups-heading"><div><span class="eyebrow">Grouped by owning component</span><h2 id="component-groups-heading">Component groups</h2><p>Review shared corrections once, then open each child finding for its exact selector, evidence, and code example.</p></div><strong>${groups.length} group${groups.length === 1 ? "" : "s"}</strong></div>${groups.map((group) => {
+  return `<section class="component-groups" aria-labelledby="component-groups-heading"><div class="component-groups-heading"><div><span class="eyebrow">Related remediation work</span><h2 id="component-groups-heading">Components and issue patterns</h2><p>Each group combines findings that share an owning component or a concrete remediation theme.</p></div><strong>${groups.length} group${groups.length === 1 ? "" : "s"}</strong></div>${groups.map((group) => {
     const members = group.findingFingerprints.map((fingerprint) => findingByFingerprint.get(fingerprint)).filter((finding): finding is Finding => Boolean(finding));
+    const prompt = group.remediationPrompt ?? buildGroupRemediationPrompt(group, members);
     const corrections = group.sharedCorrections.length
-      ? `<div class="shared-corrections"><h4>Shared corrections</h4>${group.sharedCorrections.map((correction) => `<article><span class="applies-badge">APPLIES TO ${correction.appliesTo}</span><p>${technicalText(correction.text)}</p></article>`).join("")}</div>`
-      : `<p class="meta-help">No identical correction repeats across multiple child findings; review each child separately.</p>`;
-    return `<article class="component-group-report"><div class="component-group-kicker"><span class="component-badge">${escapeHtml(group.category)}</span><span class="group-count-badge">${members.length} FINDINGS</span><span class="page-count-badge">${group.pages.length} PAGES</span></div><h3>${escapeHtml(group.name)}</h3>${group.selector ? `<code class="selector">${escapeHtml(group.selector)}</code>` : ""}${corrections}<h4>Child findings</h4><ol>${members.map((finding) => `<li><a href="#finding-${finding.fingerprint}">${technicalText(finding.title)}</a><code>${escapeHtml(finding.location.selector || finding.ruleId)}</code></li>`).join("")}</ol></article>`;
+      ? `<div class="shared-corrections"><h4>Corrections shared by multiple findings</h4>${group.sharedCorrections.map((correction) => `<article><span class="applies-badge">APPLIES TO ${correction.appliesTo}</span><p>${technicalText(correction.text)}</p></article>`).join("")}</div>`
+      : "";
+    return `<article class="component-group-report"><div class="component-group-kicker"><span class="component-badge">${escapeHtml(group.kind === "pattern" ? "Issue pattern" : group.category)}</span><span class="group-count-badge">${members.length} FINDINGS</span><span class="page-count-badge">${group.pages.length} PAGE${group.pages.length === 1 ? "" : "S"}</span></div><h3>${escapeHtml(group.name)}</h3>${group.selector ? `<code class="selector">${escapeHtml(group.selector)}</code>` : ""}${corrections}<h4>Child findings</h4><ol>${members.map((finding) => `<li><a href="#finding-${finding.fingerprint}">${technicalText(finding.title)}</a><code>${escapeHtml(finding.location.selector || finding.ruleId)}</code></li>`).join("")}</ol><section class="agent-prompt-section"><h4>Combined AI remediation prompt</h4><p>Use one coordinated task for every child finding in this group.</p><pre>${escapeHtml(prompt)}</pre></section></article>`;
   }).join("")}</section>`;
 }
 

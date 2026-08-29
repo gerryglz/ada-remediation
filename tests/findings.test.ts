@@ -73,6 +73,20 @@ describe("common findings", () => {
     expect(result[0].componentCategory).toBe("Header menu");
   });
 
+  it("groups repeated standalone findings by a useful remediation theme", () => {
+    const first = { ...finding("https://example.com/", ".hero p"), fingerprint: "contrast-1", component: undefined, ruleId: "color-contrast", title: "Elements must meet minimum color contrast ratio thresholds", evidence: "<p>Welcome</p>" };
+    const second = { ...finding("https://example.com/about", ".card p"), fingerprint: "contrast-2", component: undefined, ruleId: "color-contrast", title: "Elements must meet minimum color contrast ratio thresholds", evidence: "<p>About us</p>" };
+
+    const groups = buildFindingGroups([first, second]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({ kind: "pattern", name: "Color contrast", category: "Color" });
+    expect(groups[0].findingFingerprints).toEqual(["contrast-1", "contrast-2"]);
+    expect(groups[0].remediationPrompt).toContain("Findings to resolve:");
+    expect(groups[0].remediationPrompt).toContain("Selector: .hero p");
+    expect(groups[0].remediationPrompt).toContain("Selector: .card p");
+  });
+
   it("does not merge different selectors or duplicates confined to one page", () => {
     const result = consolidateCommonFindings([
       finding("https://example.com/", "header button"),

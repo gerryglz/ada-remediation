@@ -43,12 +43,14 @@ export interface SharedCorrection {
 
 export interface FindingGroup {
   id: string;
+  kind?: "component" | "pattern";
   name: string;
-  category: FindingComponentCategory;
+  category: FindingComponentCategory | FindingIssueCategory;
   selector?: string;
   findingFingerprints: string[];
   pages: string[];
   sharedCorrections: SharedCorrection[];
+  remediationPrompt?: string;
 }
 
 export interface VisualEvidence {

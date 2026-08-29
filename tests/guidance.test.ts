@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRemediationGuidance, buildRemediationPrompt, findingIssueCategory, remediationSummary } from "../src/guidance.js";
+import { buildGroupRemediationPrompt, buildRemediationGuidance, buildRemediationPrompt, findingIssueCategory, findingRemediationTheme, remediationSummary } from "../src/guidance.js";
 import { buildCodeSuggestion } from "../src/suggestions.js";
 import type { Finding } from "../src/types.js";
 
@@ -59,5 +59,21 @@ describe("remediation guidance", () => {
     expect(prompt).toContain("Issue category: Color");
     expect(prompt).toContain("Affected selector: .hero strong");
     expect(prompt).toContain("Do not hide the element, suppress the scanner rule");
+    expect(findingRemediationTheme(finding)).toMatchObject({ key: "color-contrast", name: "Color contrast" });
+
+    const second = { ...finding, fingerprint: "contrast-2", location: { url: "https://example.com/about", selector: ".card p" } };
+    const groupPrompt = buildGroupRemediationPrompt({
+      id: "pattern-color",
+      kind: "pattern",
+      name: "Color contrast",
+      category: "Color",
+      findingFingerprints: [finding.fingerprint, second.fingerprint],
+      pages: [finding.location.url!, second.location.url!],
+      sharedCorrections: [],
+    }, [finding, second]);
+    expect(groupPrompt).toContain("Fix all accessibility findings");
+    expect(groupPrompt).toContain("1. Elements must meet minimum color contrast ratio thresholds");
+    expect(groupPrompt).toContain("2. Elements must meet minimum color contrast ratio thresholds");
+    expect(groupPrompt).toContain("Selector: .card p");
   });
 });
