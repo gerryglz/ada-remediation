@@ -86,8 +86,8 @@ Then open [http://127.0.0.1:4174](http://127.0.0.1:4174).
 
 Check **Pages tested** before interpreting zero findings:
 
-- **Pages tested is 1 or more, Findings is 0:** the completed axe-core scan did not detect an automated violation. This is a valid result, but manual accessibility testing is still required.
-- **Pages tested is 0:** the page did not complete. Read the **Incomplete pages** message for the network, timeout, browser, or navigation error. Do not treat this as a clean accessibility result.
+- **Pages tested is 1 or more, Unique findings is 0:** the completed axe-core scan did not detect an automated violation. This is a valid result, but manual accessibility testing is still required.
+- **Pages tested is 0:** the page did not complete. Read **Incomplete pages** for the failed stage, number of attempts, and underlying network, HTTP, browser, or audit error. Do not treat this as a clean accessibility result.
 - **The UI does not show Pages tested:** you are probably running an older compiled dashboard. Stop it and restart with `npm run ui`.
 
 For a simpler diagnostic without screenshots, run:
@@ -211,14 +211,24 @@ Use `scan-site` to start at one page, follow same-origin links, and test several
 
 1. Choose a starting URL that links to the important areas of the site.
 2. Set a page limit appropriate for the site and your authorization.
-3. Increase the timeout only if pages load slowly.
+3. Increase the timeout only if pages need more time to produce usable HTML.
 
 ```bash
 node dist/cli.js scan-site https://example.com --max-pages 25
 node dist/cli.js scan-site https://example.com --max-pages 50 --timeout 45000
 ```
 
+The crawler waits for the initial HTML (`DOMContentLoaded`), allows a short rendering settle period, and then runs axe-core. It does not wait for every analytics, advertising, or long-lived network request to become idle. If navigation fails or returns an HTTP error, it retries that page once. Pages that still fail remain under **Incomplete pages** with the failed stage and attempt count while successfully completed pages remain in the report. `--timeout` applies to each navigation attempt.
+
 The crawler stays on the starting origin. It ignores external origins, URL fragments, malformed URLs, and non-HTTP links. A crawl may not discover pages that are unlinked, require form submissions, or appear only after complex interactions; scan those URLs explicitly.
+
+When the same axe rule reports the same CSS selector and detected markup on two or more tested URLs, the report consolidates those copies into one recurring finding. Two compact badges identify the likely component—such as **NAVIGATION MENU**, **FORM**, or **PAGE CONTENT**—and the number of affected pages. Its **Affected pages** section links every page where it appeared. Fix the owning shared component, then retest all listed pages. The summary separates **Unique findings** from total **Occurrences**, so consolidation does not hide how widespread an issue is. Recurring means repeated within the pages tested by this crawl; it does not claim that every page on the full site contains the issue.
+
+The rendered-page scanner identifies the nearest semantic component around each failed element—for example a header menu, navigation region, footer, form, or table. When two or more distinct findings belong to that owner, the dashboard adds one parent item to **Components**, such as **HEADER MENU · 8 FINDINGS · 3 PAGES**. Findings without a shared semantic owner are grouped under **Issue patterns** when they share a concrete remediation theme such as **Color contrast**, **ARIA relationships**, **Accessible names and labels**, **Heading structure**, or **Keyboard and focus**. This keeps repeated scanner titles from filling the queue while avoiding a vague catch-all group.
+
+Selecting either group shows its affected pages, corrections that apply to multiple children, and expandable element-level evidence. It also provides one **Combined AI remediation prompt** containing every child rule, URL, selector, failed condition, detected markup, recommended direction, and verification requirement. Grouped children do not repeat separate prompts in the dashboard. Sidebar finding titles do not use positional numbers because filtering and grouping make those positions unstable. Grouping changes presentation only: distinct finding and occurrence totals remain intact.
+
+Every automated finding also receives a compact issue-category badge such as **COLOR**, **CONTENT**, **ARIA**, **STRUCTURE**, **KEYBOARD**, **FORMS**, or **MEDIA**. Standalone findings receive an individual **AI remediation prompt**; grouped findings use the combined prompt described above. Prompts are technology-agnostic and tell a coding agent to identify the framework, CMS, template, or component that produces the rendered elements before editing maintained source. Treat the result as implementation guidance, review the proposed change, and complete the listed accessibility verification rather than accepting generated code blindly.
 
 ## Testing method 6: scan authenticated pages
 
@@ -278,7 +288,7 @@ node dist/cli.js report ada-results.json --format html --output accessibility-re
 node dist/cli.js report ada-results.json --format sarif --output ada-results.sarif
 ```
 
-Open the HTML report in a browser to combine impact-severity and WCAG-level filters and inspect evidence. JSON is the input for fixes and baselines. SARIF is intended for code-scanning integrations.
+Open the HTML report in a browser to combine impact-severity and WCAG-level filters and inspect evidence. Common findings include their affected-page list. JSON preserves every occurrence, and SARIF emits each occurrence as a result location. JSON is also the input for fixes and baselines; SARIF is intended for code-scanning integrations.
 
 ## Preview fixes, apply them, and test again
 

@@ -12,6 +12,47 @@ export interface SourceLocation {
   selector?: string;
 }
 
+export interface FindingOccurrence {
+  fingerprint: string;
+  location: SourceLocation;
+}
+
+export type FindingComponentCategory =
+  | "Header menu"
+  | "Navigation menu"
+  | "Header"
+  | "Footer"
+  | "Form"
+  | "Table"
+  | "Image or media"
+  | "Interactive control"
+  | "Page content";
+
+export interface FindingComponent {
+  key: string;
+  category: FindingComponentCategory;
+  name: string;
+  selector?: string;
+}
+
+export interface SharedCorrection {
+  text: string;
+  appliesTo: number;
+  findingFingerprints: string[];
+}
+
+export interface FindingGroup {
+  id: string;
+  kind?: "component" | "pattern";
+  name: string;
+  category: FindingComponentCategory | FindingIssueCategory;
+  selector?: string;
+  findingFingerprints: string[];
+  pages: string[];
+  sharedCorrections: SharedCorrection[];
+  remediationPrompt?: string;
+}
+
 export interface VisualEvidence {
   dataUrl: string;
   mimeType: "image/jpeg" | "image/png";
@@ -84,11 +125,29 @@ export interface Finding {
   remediationGuidance?: RemediationGuidance;
   confidence: Confidence;
   kind: FindingKind;
+  scope?: "page" | "common";
+  componentCategory?: FindingComponentCategory;
+  component?: FindingComponent;
+  occurrences?: FindingOccurrence[];
   contrast?: ContrastEvidence;
   codeSuggestion?: CodeSuggestion;
   screenshot?: VisualEvidence;
   safeFix?: SafeFix;
+  issueCategory?: FindingIssueCategory;
+  remediationPrompt?: string;
 }
+
+export type FindingIssueCategory =
+  | "ARIA"
+  | "Color"
+  | "Content"
+  | "Forms"
+  | "Keyboard"
+  | "Language"
+  | "Media"
+  | "Motion"
+  | "Navigation"
+  | "Structure";
 
 export interface ScanMetadata {
   scanner: "repository" | "url" | "site";
@@ -97,14 +156,17 @@ export interface ScanMetadata {
   completedAt: string;
   toolVersion: string;
   pagesOrFilesScanned: number;
+  findingOccurrences?: number;
+  commonFindings?: number;
   wcagLevel?: WcagLevel;
-  incomplete?: Array<{ url: string; reason: string }>;
+  incomplete?: Array<{ url: string; reason: string; stage?: "navigation" | "audit"; attempts?: number }>;
 }
 
 export interface ScanResult {
   schemaVersion: "1.0";
   metadata: ScanMetadata;
   findings: Finding[];
+  findingGroups?: FindingGroup[];
   manualChecks: ManualCheck[];
   notice: string;
 }
