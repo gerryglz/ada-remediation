@@ -6,6 +6,8 @@ import { buildCodeSuggestion } from "../suggestions.js";
 import { axeTagsForWcagLevel, DEFAULT_WCAG_LEVEL, wcagLevelFromTags } from "../wcag.js";
 import { manualReviewChecklist } from "../manual.js";
 import { buildRemediationGuidance, remediationSummary } from "../guidance.js";
+import { consolidateCommonFindings } from "../findings.js";
+import { navigateForAccessibilityScan, PageNavigationError } from "../navigation.js";
 
 const require = createRequire(import.meta.url);
 const axePath = require.resolve("axe-core/axe.min.js");
@@ -24,6 +26,18 @@ interface AxeViolation {
   description: string;
   helpUrl: string;
   nodes: AxeNode[];
+}
+
+class PageAuditError extends Error {
+  readonly stage = "audit" as const;
+  readonly attempts = 1;
+
+  constructor(cause: unknown) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    super(`Accessibility engine failed: ${detail}`);
+    this.name = "PageAuditError";
+    this.cause = cause;
+  }
 }
 
 function normalizeWcag(tags: string[]): string[] {
@@ -152,23 +166,29 @@ async function scanPage(
   axeTags: string[],
   reportStage: (fraction: number, phase: UrlScanProgress["phase"], message: string) => void,
 ): Promise<{ findings: Finding[]; links: string[] }> {
-  reportStage(0.05, "loading", `Opening ${url}`);
-  await page.goto(url, { waitUntil: "networkidle", timeout });
+  await navigateForAccessibilityScan(page, url, timeout, (attempt, maximumAttempts) => {
+    reportStage(0.05, "loading", `Opening ${url}${attempt > 1 ? ` — retry ${attempt} of ${maximumAttempts}` : ""}`);
+  });
   reportStage(0.32, "analyzing", "Page loaded. Running axe-core accessibility checks.");
-  await page.addScriptTag({ path: axePath });
-  const result = await page.evaluate(async (runOnlyTags) => {
-    const axe = (window as unknown as {
-      axe: {
-        getRules: () => Array<{ tags: string[] }>;
-        run: (context: Document, options: object) => Promise<{ violations: AxeViolation[] }>;
-      };
-    }).axe;
-    const availableTags = new Set(axe.getRules().flatMap((rule) => rule.tags));
-    const supportedTags = runOnlyTags.filter((tag) => availableTags.has(tag));
-    const audit = await axe.run(document, { runOnly: { type: "tag", values: supportedTags } });
-    const links = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]")).map((link) => link.href);
-    return { violations: audit.violations, links, pageTitle: document.title };
-  }, axeTags);
+  let result: { violations: AxeViolation[]; links: string[]; pageTitle: string };
+  try {
+    await page.addScriptTag({ path: axePath });
+    result = await page.evaluate(async (runOnlyTags) => {
+      const axe = (window as unknown as {
+        axe: {
+          getRules: () => Array<{ tags: string[] }>;
+          run: (context: Document, options: object) => Promise<{ violations: AxeViolation[] }>;
+        };
+      }).axe;
+      const availableTags = new Set(axe.getRules().flatMap((rule) => rule.tags));
+      const supportedTags = runOnlyTags.filter((tag) => availableTags.has(tag));
+      const audit = await axe.run(document, { runOnly: { type: "tag", values: supportedTags } });
+      const links = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]")).map((link) => link.href);
+      return { violations: audit.violations, links, pageTitle: document.title };
+    }, axeTags);
+  } catch (error) {
+    throw new PageAuditError(error);
+  }
 
   const findings: Finding[] = [];
   const totalNodes = result.violations.reduce((total, violation) => total + violation.nodes.length, 0);
@@ -241,7 +261,7 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
   let browser: Browser | undefined;
   let context: BrowserContext | undefined;
   const findings: Finding[] = [];
-  const incomplete: Array<{ url: string; reason: string }> = [];
+  const incomplete: Array<{ url: string; reason: string; stage?: "navigation" | "audit"; attempts?: number }> = [];
   const screenshotBudget = { remaining: options.screenshotLimit ?? 50 };
   const queued = targets.map((target) => new URL(target).href);
   const allowedOrigins = new Set(queued.map((target) => new URL(target).origin));
@@ -301,7 +321,12 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
           }
         }
       } catch (error) {
-        incomplete.push({ url, reason: error instanceof Error ? error.message : String(error) });
+        const knownError = error instanceof PageNavigationError || error instanceof PageAuditError ? error : undefined;
+        incomplete.push({
+          url,
+          reason: error instanceof Error ? error.message : String(error),
+          ...(knownError ? { stage: knownError.stage, attempts: knownError.attempts } : {}),
+        });
       }
       emitProgress({
         phase: "scanning",
@@ -320,6 +345,7 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
 
   emitProgress({ phase: "finalizing", percent: 96, message: "Building the report and manual review checklist.", pagesCompleted: visited.size - incomplete.length, totalPages, findingsFound: findings.length });
 
+  const consolidatedFindings = consolidateCommonFindings(findings);
   const scanResult: ScanResult = {
     schemaVersion: "1.0",
     metadata: {
@@ -329,10 +355,12 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
       completedAt: new Date().toISOString(),
       toolVersion: TOOL_VERSION,
       pagesOrFilesScanned: visited.size - incomplete.length,
+      findingOccurrences: findings.length,
+      commonFindings: consolidatedFindings.filter((finding) => finding.scope === "common").length,
       wcagLevel,
       incomplete,
     },
-    findings,
+    findings: consolidatedFindings,
     manualChecks: manualReviewChecklist(wcagLevel),
     notice: LEGAL_NOTICE,
   };

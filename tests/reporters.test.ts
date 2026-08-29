@@ -32,8 +32,22 @@ describe("reporters", () => {
       highlightedSelector: "img",
       description: "The affected image is outlined in charcoal.",
     };
+    result.findings[0].scope = "common";
+    result.findings[0].occurrences = [
+      { fingerprint: result.findings[0].fingerprint, location: { ...result.findings[0].location } },
+      {
+        fingerprint: `${result.findings[0].fingerprint}-second`,
+        location: {
+          ...result.findings[0].location,
+          url: "https://example.com/second",
+          pageTitle: "Second affected page",
+        },
+      },
+    ];
+    result.metadata.findingOccurrences = result.findings.length + 1;
     expect(terminalReport(result)).toContain("Conformance target: WCAG 2.2 Level AAA");
     expect(terminalReport(result)).toContain("Automated results cannot certify");
+    expect(terminalReport(result)).toContain("Common component: 2 pages / 2 occurrences");
     const html = htmlReport(result);
     expect(html).toContain("Findings in context");
     expect(html).toContain("Conformance target:</strong> WCAG 2.2 Level AAA");
@@ -44,6 +58,10 @@ describe("reporters", () => {
     expect(html).toContain("Open large screenshot");
     expect(html).toContain("Finding summary");
     expect(html).toContain("Where it was found");
+    expect(html).toContain("COMMON · 2 PAGES");
+    expect(html).toContain("Affected pages");
+    expect(html).toContain("Second affected page");
+    expect(html).toContain("2 total occurrences");
     expect(html).toContain("Why this was flagged");
     expect(html).toContain("How to verify the fix");
     expect(html).toContain("What to inspect");
@@ -82,9 +100,10 @@ describe("reporters", () => {
     expect(html).toContain("--accent-orange:#9a4e12");
     expect(html).not.toContain(".wcag-level-badge.level-aa");
     expect(html).toContain(".finding .report-section::before");
-    const sarif = JSON.parse(sarifReport(result)) as { version: string; runs: unknown[] };
+    const sarif = JSON.parse(sarifReport(result)) as { version: string; runs: Array<{ results: Array<{ locations: unknown[] }> }> };
     expect(sarif.version).toBe("2.1.0");
     expect(sarif.runs).toHaveLength(1);
+    expect(sarif.runs[0].results[0].locations).toHaveLength(2);
   });
 
   it("renders the local dashboard using the documented design system", () => {
@@ -130,6 +149,13 @@ describe("reporters", () => {
     expect(html).toContain("renderManualChecks");
     expect(html).toContain("Color contrast evidence");
     expect(html).toContain("Manual tasks");
+    expect(html).toContain("Unique findings");
+    expect(html).toContain("Occurrences");
+    expect(html).toContain("COMMON · '+pages+' PAGES");
+    expect(html).toContain("Affected pages");
+    expect(html).toContain("enhanceCommonFinding");
+    expect(html).toContain("item.stage+' stage'");
+    expect(html).toContain("item.attempts");
     expect(html).toContain("#f7f4ed");
     expect(html).toContain("Download HTML report");
     expect(html).toContain("Capture screenshots");

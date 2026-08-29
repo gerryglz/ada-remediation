@@ -12,6 +12,11 @@ export interface SourceLocation {
   selector?: string;
 }
 
+export interface FindingOccurrence {
+  fingerprint: string;
+  location: SourceLocation;
+}
+
 export interface VisualEvidence {
   dataUrl: string;
   mimeType: "image/jpeg" | "image/png";
@@ -84,6 +89,8 @@ export interface Finding {
   remediationGuidance?: RemediationGuidance;
   confidence: Confidence;
   kind: FindingKind;
+  scope?: "page" | "common";
+  occurrences?: FindingOccurrence[];
   contrast?: ContrastEvidence;
   codeSuggestion?: CodeSuggestion;
   screenshot?: VisualEvidence;
@@ -97,8 +104,10 @@ export interface ScanMetadata {
   completedAt: string;
   toolVersion: string;
   pagesOrFilesScanned: number;
+  findingOccurrences?: number;
+  commonFindings?: number;
   wcagLevel?: WcagLevel;
-  incomplete?: Array<{ url: string; reason: string }>;
+  incomplete?: Array<{ url: string; reason: string; stage?: "navigation" | "audit"; attempts?: number }>;
 }
 
 export interface ScanResult {
