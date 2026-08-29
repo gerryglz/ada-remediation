@@ -77,6 +77,9 @@ describe("reporters", () => {
 
   it("renders the local dashboard using the documented design system", () => {
     const html = dashboardHtml();
+    const dashboardScript = html.match(/<script>([\s\S]*)<\/script>/)?.[1];
+    expect(dashboardScript).toBeDefined();
+    expect(() => new Function(dashboardScript)).not.toThrow();
     expect(html).toContain("id=\"scan-form\"");
     expect(html).toContain('class="app-header"');
     expect(html).toContain("Accessibility audit workspace");
@@ -94,6 +97,9 @@ describe("reporters", () => {
     expect(html).toContain("summary-collapsed");
     expect(html).toContain("setResultSummaryExpanded");
     expect(html).toContain("appendTechnicalText");
+    expect(html).toContain("split(/(<\\/?[a-z][^>]*>)/gi)");
+    expect(html).toContain("rel=\"icon\"");
+    expect(html).toContain("data:image/svg+xml");
     expect(html).toContain("font-family:ui-monospace");
     expect(html).toContain(".finding-nav-title{margin-top:11px}");
     expect(html).toContain("el('span','wcag-level-badge',check.wcagLevel)");
