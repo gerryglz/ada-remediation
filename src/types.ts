@@ -39,6 +39,12 @@ export interface ContrastEvidence {
   fontWeight?: string;
 }
 
+export interface RemediationGuidance {
+  inspect: string[];
+  change: string[];
+  verify: string[];
+}
+
 export interface ManualCheck {
   id: string;
   category: string;
@@ -75,6 +81,7 @@ export interface Finding {
   explanation: string;
   impact: string;
   remediation: string;
+  remediationGuidance?: RemediationGuidance;
   confidence: Confidence;
   kind: FindingKind;
   contrast?: ContrastEvidence;
