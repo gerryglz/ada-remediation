@@ -224,6 +224,8 @@ The crawler stays on the starting origin. It ignores external origins, URL fragm
 
 When the same axe rule reports the same CSS selector and detected markup on two or more tested URLs, the report consolidates those copies into one recurring finding. Two compact badges identify the likely component—such as **NAVIGATION MENU**, **FORM**, or **PAGE CONTENT**—and the number of affected pages. Its **Affected pages** section links every page where it appeared. Fix the owning shared component, then retest all listed pages. The summary separates **Unique findings** from total **Occurrences**, so consolidation does not hide how widespread an issue is. Recurring means repeated within the pages tested by this crawl; it does not claim that every page on the full site contains the issue.
 
+The rendered-page scanner also identifies the nearest semantic component around each failed element—for example a header menu, navigation region, footer, form, or table. When two or more distinct findings belong to the same detected component, the dashboard adds a collapsible parent group such as **HEADER MENU · 8 FINDINGS · 3 PAGES**. Selecting the parent opens a component overview with affected pages, all child findings, and only the correction instructions that repeat across multiple children. Selecting a child still opens its exact selector, evidence, screenshot, and before/after suggestion. Grouping changes presentation only: distinct child findings and occurrence totals remain intact.
+
 ## Testing method 6: scan authenticated pages
 
 Use a Playwright storage-state file when a page requires login.

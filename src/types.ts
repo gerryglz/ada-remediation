@@ -18,6 +18,7 @@ export interface FindingOccurrence {
 }
 
 export type FindingComponentCategory =
+  | "Header menu"
   | "Navigation menu"
   | "Header"
   | "Footer"
@@ -26,6 +27,29 @@ export type FindingComponentCategory =
   | "Image or media"
   | "Interactive control"
   | "Page content";
+
+export interface FindingComponent {
+  key: string;
+  category: FindingComponentCategory;
+  name: string;
+  selector?: string;
+}
+
+export interface SharedCorrection {
+  text: string;
+  appliesTo: number;
+  findingFingerprints: string[];
+}
+
+export interface FindingGroup {
+  id: string;
+  name: string;
+  category: FindingComponentCategory;
+  selector?: string;
+  findingFingerprints: string[];
+  pages: string[];
+  sharedCorrections: SharedCorrection[];
+}
 
 export interface VisualEvidence {
   dataUrl: string;
@@ -101,6 +125,7 @@ export interface Finding {
   kind: FindingKind;
   scope?: "page" | "common";
   componentCategory?: FindingComponentCategory;
+  component?: FindingComponent;
   occurrences?: FindingOccurrence[];
   contrast?: ContrastEvidence;
   codeSuggestion?: CodeSuggestion;
@@ -125,6 +150,7 @@ export interface ScanResult {
   schemaVersion: "1.0";
   metadata: ScanMetadata;
   findings: Finding[];
+  findingGroups?: FindingGroup[];
   manualChecks: ManualCheck[];
   notice: string;
 }

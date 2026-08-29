@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { affectedPageCount, consolidateCommonFindings, findingComponentCategory, findingOccurrenceCount } from "../src/findings.js";
+import { affectedPageCount, buildFindingGroups, consolidateCommonFindings, findingComponentCategory, findingOccurrenceCount } from "../src/findings.js";
 import type { Finding } from "../src/types.js";
 
 function finding(url: string, selector = "nav > button"): Finding {
@@ -44,6 +44,33 @@ describe("common findings", () => {
     expect(findingComponentCategory(finding("https://example.com/"))).toBe("Navigation menu");
     expect(findingComponentCategory({ ...finding("https://example.com/"), ruleId: "image-alt", title: "Images need text", evidence: '<img src="hero.jpg">', location: { url: "https://example.com/", selector: ".hero-image" } })).toBe("Image or media");
     expect(findingComponentCategory({ ...finding("https://example.com/"), ruleId: "heading-order", title: "Heading order", evidence: "<h3>Details</h3>", location: { url: "https://example.com/", selector: "main h3" } })).toBe("Page content");
+  });
+
+  it("groups distinct child findings under one detected component and deduplicates shared corrections", () => {
+    const component = { key: "header-menu|nav|primary", category: "Header menu" as const, name: "Primary navigation", selector: 'nav[aria-label="Primary"]' };
+    const first = { ...finding("https://example.com/", "#products"), component, remediationGuidance: { inspect: [], change: ["Use native navigation links."], verify: [] } };
+    const second = { ...finding("https://example.com/about", "#services"), fingerprint: "second", component, remediationGuidance: { inspect: [], change: ["Use native navigation links."], verify: [] } };
+    const groups = buildFindingGroups([first, second]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({ name: "Primary navigation", category: "Header menu" });
+    expect(groups[0].findingFingerprints).toEqual([first.fingerprint, second.fingerprint]);
+    expect(groups[0].pages).toEqual(["https://example.com/", "https://example.com/about"]);
+    expect(groups[0].sharedCorrections).toEqual([{
+      text: "Use native navigation links.",
+      appliesTo: 2,
+      findingFingerprints: [first.fingerprint, second.fingerprint],
+    }]);
+  });
+
+  it("preserves the scanner's semantic component category when consolidating pages", () => {
+    const component = { key: "header-menu|nav|primary", category: "Header menu" as const, name: "Primary navigation" };
+    const result = consolidateCommonFindings([
+      { ...finding("https://example.com/"), component, componentCategory: component.category },
+      { ...finding("https://example.com/about"), component, componentCategory: component.category },
+    ]);
+
+    expect(result[0].componentCategory).toBe("Header menu");
   });
 
   it("does not merge different selectors or duplicates confined to one page", () => {

@@ -34,6 +34,14 @@ describe("reporters", () => {
     };
     result.findings[0].scope = "common";
     result.findings[0].componentCategory = "Navigation menu";
+    const component = { key: "header-menu|primary", category: "Header menu" as const, name: "Primary navigation", selector: 'nav[aria-label="Primary"]' };
+    result.findings[0].component = component;
+    result.findings[1].component = component;
+    result.findings[1].remediationGuidance = {
+      inspect: ["Review this child element in the primary navigation."],
+      change: ['For an embedded image, add role="img" with an accessible name and an equivalent fallback link.'],
+      verify: ["Retest the primary navigation."],
+    };
     result.findings[0].occurrences = [
       { fingerprint: result.findings[0].fingerprint, location: { ...result.findings[0].location } },
       {
@@ -49,6 +57,8 @@ describe("reporters", () => {
     expect(terminalReport(result)).toContain("Conformance target: WCAG 2.2 Level AAA");
     expect(terminalReport(result)).toContain("Automated results cannot certify");
     expect(terminalReport(result)).toContain("Recurring Navigation menu: 2 pages / 2 occurrences");
+    expect(terminalReport(result)).toContain("Component groups:");
+    expect(terminalReport(result)).toContain("Primary navigation: 2 findings");
     const html = htmlReport(result);
     expect(html).toContain("Findings in context");
     expect(html).toContain("Conformance target:</strong> WCAG 2.2 Level AAA");
@@ -64,6 +74,11 @@ describe("reporters", () => {
     expect(html).toContain("2 PAGES");
     expect(html).not.toContain("COMMON · 2 PAGES");
     expect(html).toContain("Affected pages");
+    expect(html).toContain("Component groups");
+    expect(html).toContain("Primary navigation");
+    expect(html).toContain("Shared corrections");
+    expect(html).toContain("Child findings");
+    expect(html).toContain("APPLIES TO 2");
     expect(html).toContain("Second affected page");
     expect(html).toContain("2 total occurrences");
     expect(html).toContain("Why this was flagged");
@@ -161,6 +176,10 @@ describe("reporters", () => {
     expect(html).not.toContain("'COMMON · '+pages+' PAGES'");
     expect(html).toContain("Affected pages");
     expect(html).toContain("enhanceCommonFinding");
+    expect(html).toContain("renderGroupDetail");
+    expect(html).toContain("componentGroupNav");
+    expect(html).toContain("Shared corrections");
+    expect(html).toContain("Child findings and element-level fixes");
     expect(html).toContain("item.stage+' stage'");
     expect(html).toContain("item.attempts");
     expect(html).toContain("#f7f4ed");
@@ -174,7 +193,7 @@ describe("reporters", () => {
     expect(html).toContain("All levels");
     expect(html).toContain("activeLevel='all'");
     expect(html).toContain("f.wcagLevel===activeLevel");
-    expect(html).toContain("No findings match the selected severity and WCAG level filters.");
+    expect(html).toContain("No findings match this filter.");
     expect(html).toContain("wcagLevel:selectedLevel");
     expect(html).toContain("result.metadata.wcagLevel||'AA'");
     expect(html).toContain("Pages tested");

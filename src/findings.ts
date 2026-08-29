@@ -1,4 +1,4 @@
-import type { Finding, FindingComponentCategory, FindingOccurrence } from "./types.js";
+import type { Finding, FindingComponentCategory, FindingGroup, FindingOccurrence } from "./types.js";
 
 function normalized(value: string | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
@@ -21,6 +21,7 @@ export function findingComponentCategory(finding: Finding): FindingComponentCate
     finding.evidence,
   ].join(" ")).toLowerCase();
 
+  if ((/<header\b|\b(?:site-header|masthead|banner)\b/.test(context)) && (/<nav\b|\b(?:navigation|navbar|menubar|menuitem|menu|js-top-level)\b/.test(context))) return "Header menu";
   if (/<nav\b|\b(?:navigation|navbar|menubar|menuitem|menu|js-top-level)\b/.test(context)) return "Navigation menu";
   if (/<header\b|\b(?:site-header|masthead|banner)\b/.test(context)) return "Header";
   if (/<footer\b|\b(?:site-footer|contentinfo)\b/.test(context)) return "Footer";
@@ -29,6 +30,59 @@ export function findingComponentCategory(finding: Finding): FindingComponentCate
   if (/<(?:img|picture|video|audio|object|svg)\b|\b(?:image|media|video|audio)\b/.test(context)) return "Image or media";
   if (/<(?:button|a)\b|\b(?:button|link|control)\b/.test(context)) return "Interactive control";
   return "Page content";
+}
+
+function findingPages(finding: Finding): string[] {
+  return (finding.occurrences ?? [occurrence(finding)])
+    .map((item) => item.location.url)
+    .filter((url): url is string => Boolean(url));
+}
+
+function groupCorrections(findings: Finding[]): FindingGroup["sharedCorrections"] {
+  const corrections = new Map<string, { text: string; fingerprints: Set<string> }>();
+  for (const finding of findings) {
+    const guidance = finding.remediationGuidance?.change.length
+      ? finding.remediationGuidance.change
+      : [finding.remediation];
+    for (const text of new Set(guidance.map((item) => normalized(item)).filter(Boolean))) {
+      const key = text.toLowerCase();
+      const entry = corrections.get(key) ?? { text, fingerprints: new Set<string>() };
+      entry.fingerprints.add(finding.fingerprint);
+      corrections.set(key, entry);
+    }
+  }
+  return [...corrections.values()]
+    .filter((entry) => entry.fingerprints.size > 1)
+    .map((entry) => ({
+      text: entry.text,
+      appliesTo: entry.fingerprints.size,
+      findingFingerprints: [...entry.fingerprints],
+    }))
+    .sort((a, b) => b.appliesTo - a.appliesTo || a.text.localeCompare(b.text));
+}
+
+export function buildFindingGroups(findings: Finding[]): FindingGroup[] {
+  const grouped = new Map<string, Finding[]>();
+  for (const finding of findings) {
+    if (!finding.component) continue;
+    const group = grouped.get(finding.component.key) ?? [];
+    group.push(finding);
+    grouped.set(finding.component.key, group);
+  }
+
+  return [...grouped.entries()].flatMap(([key, members], index) => {
+    if (members.length < 2) return [];
+    const component = members[0].component!;
+    return [{
+      id: `component-${index + 1}-${key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48)}`,
+      name: component.name,
+      category: component.category,
+      ...(component.selector ? { selector: component.selector } : {}),
+      findingFingerprints: members.map((finding) => finding.fingerprint),
+      pages: [...new Set(members.flatMap(findingPages))],
+      sharedCorrections: groupCorrections(members),
+    }];
+  });
 }
 
 export function findingOccurrenceCount(finding: Finding): number {
@@ -61,7 +115,7 @@ export function consolidateCommonFindings(findings: Finding[]): Finding[] {
     return [{
       ...first,
       scope: "common" as const,
-      componentCategory: findingComponentCategory(first),
+      componentCategory: first.component?.category ?? first.componentCategory ?? findingComponentCategory(first),
       occurrences: group.map(occurrence),
     }];
   });

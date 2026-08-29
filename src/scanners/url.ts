@@ -1,12 +1,12 @@
 import { createRequire } from "node:module";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
-import { LEGAL_NOTICE, type ContrastEvidence, type Finding, type ScanResult, type Severity, type VisualEvidence, type WcagLevel } from "../types.js";
+import { LEGAL_NOTICE, type ContrastEvidence, type Finding, type FindingComponent, type ScanResult, type Severity, type VisualEvidence, type WcagLevel } from "../types.js";
 import { fingerprintFinding, TOOL_VERSION } from "../utils.js";
 import { buildCodeSuggestion } from "../suggestions.js";
 import { axeTagsForWcagLevel, DEFAULT_WCAG_LEVEL, wcagLevelFromTags } from "../wcag.js";
 import { manualReviewChecklist } from "../manual.js";
 import { buildRemediationGuidance, remediationSummary } from "../guidance.js";
-import { consolidateCommonFindings } from "../findings.js";
+import { buildFindingGroups, consolidateCommonFindings } from "../findings.js";
 import { navigateForAccessibilityScan, PageNavigationError } from "../navigation.js";
 
 const require = createRequire(import.meta.url);
@@ -16,6 +16,7 @@ interface AxeNode {
   html: string;
   target: string[];
   failureSummary?: string;
+  component?: FindingComponent;
 }
 
 interface AxeViolation {
@@ -78,6 +79,7 @@ function normalizeViolation(violation: AxeViolation, node: AxeNode, url: string,
     remediationGuidance,
     confidence: "high",
     kind: "automatic",
+    ...(node.component ? { component: node.component, componentCategory: node.component.category } : {}),
     codeSuggestion,
   };
 }
@@ -183,8 +185,52 @@ async function scanPage(
       const availableTags = new Set(axe.getRules().flatMap((rule) => rule.tags));
       const supportedTags = runOnlyTags.filter((tag) => availableTags.has(tag));
       const audit = await axe.run(document, { runOnly: { type: "tag", values: supportedTags } });
+      const componentFor = (selectorParts: string[]): FindingComponent | undefined => {
+        let element: Element | null = null;
+        try {
+          element = document.querySelector(selectorParts.join(" "));
+        } catch {
+          return undefined;
+        }
+        if (!element) return undefined;
+        const menu = element.closest('nav,[role="navigation"],[role="menu"],[role="menubar"]');
+        const isMenuItem = element.matches('[role="menuitem"]');
+        const header = element.closest('header,[role="banner"]');
+        const region = menu ?? header ?? (isMenuItem ? element.parentElement : null) ?? element.closest('footer,[role="contentinfo"],form,table');
+        if (!region) return undefined;
+        const tag = region.tagName.toLowerCase();
+        const role = region.getAttribute("role")?.toLowerCase();
+        const category = menu || isMenuItem
+          ? (header ? "Header menu" : "Navigation menu")
+          : tag === "header" || role === "banner"
+            ? "Header"
+            : tag === "footer" || role === "contentinfo"
+              ? "Footer"
+              : tag === "form"
+                ? "Form"
+                : "Table";
+        const label = region.getAttribute("aria-label")?.trim();
+        const id = region.id.trim();
+        const stableClasses = [...region.classList].filter((value) => !/^(active|open|show|selected|focus|hover|js-)$/i.test(value)).slice(0, 2);
+        const selector = id
+          ? `#${id}`
+          : label
+            ? `${tag}[aria-label="${label}"]`
+            : `${tag}${stableClasses.map((value) => `.${value}`).join("")}`;
+        const name = label || (category === "Header menu" ? "Header menu" : category);
+        return {
+          key: [category, tag, label ?? "", id, ...stableClasses].join("|").toLowerCase(),
+          category,
+          name,
+          selector,
+        };
+      };
+      const violations = audit.violations.map((violation) => ({
+        ...violation,
+        nodes: violation.nodes.map((node) => ({ ...node, component: componentFor(node.target) })),
+      }));
       const links = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]")).map((link) => link.href);
-      return { violations: audit.violations, links, pageTitle: document.title };
+      return { violations, links, pageTitle: document.title };
     }, axeTags);
   } catch (error) {
     throw new PageAuditError(error);
@@ -346,6 +392,7 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
   emitProgress({ phase: "finalizing", percent: 96, message: "Building the report and manual review checklist.", pagesCompleted: visited.size - incomplete.length, totalPages, findingsFound: findings.length });
 
   const consolidatedFindings = consolidateCommonFindings(findings);
+  const findingGroups = buildFindingGroups(consolidatedFindings);
   const scanResult: ScanResult = {
     schemaVersion: "1.0",
     metadata: {
@@ -361,6 +408,7 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
       incomplete,
     },
     findings: consolidatedFindings,
+    findingGroups,
     manualChecks: manualReviewChecklist(wcagLevel),
     notice: LEGAL_NOTICE,
   };
