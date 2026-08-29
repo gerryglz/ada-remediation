@@ -179,7 +179,10 @@ describe("reporters", () => {
     expect(html).toContain("renderGroupDetail");
     expect(html).toContain("componentGroupNav");
     expect(html).toContain("groupChildDetail");
-    expect(html).toContain("Findings and components");
+    expect(html).toContain("sidebar-components");
+    expect(html).toContain("Individual findings");
+    expect(html).toContain("function findingNav(f)");
+    expect(html).toContain("queueHeading.textContent='Finding list'");
     expect(html).toContain("Expand any child below");
     expect(html).not.toContain("Child findings shown below");
     expect(html).toContain("Shared corrections");
