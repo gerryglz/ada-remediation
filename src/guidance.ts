@@ -199,6 +199,10 @@ export function buildRemediationPrompt(finding: Finding): string {
     `Automated rule: ${finding.ruleId}`,
     location,
     `Affected selector: ${finding.location.selector ?? "Not provided"}`,
+    ...(finding.location.interactionState ? [
+      `Revealed state: after opening ${finding.location.interactionState}`,
+      `Disclosure trigger: ${finding.location.interactionTrigger ?? "Not recorded"}`,
+    ] : []),
     `Rendered HTML context: ${renderedContext}`,
     `Failed condition: ${finding.impact}`,
     "",
@@ -229,6 +233,10 @@ export function buildGroupRemediationPrompt(group: FindingGroup, findings: Findi
     `   Automated rule: ${finding.ruleId}`,
     `   Page: ${finding.location.url ?? finding.location.file ?? "Locate in the project"}`,
     `   Selector: ${finding.location.selector ?? "Not provided"}`,
+    ...(finding.location.interactionState ? [
+      `   Revealed state: after opening ${finding.location.interactionState}`,
+      `   Disclosure trigger: ${finding.location.interactionTrigger ?? "Not recorded"}`,
+    ] : []),
     `   Failed condition: ${finding.impact}`,
     `   Rendered HTML context: ${finding.renderedHtmlContext?.html ?? finding.evidence}`,
   ]);

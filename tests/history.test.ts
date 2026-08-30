@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { compareScanRuns, deleteScanRun, getScanRun, listScanRuns, saveScanRun, updateRunReview, websiteKey } from "../src/history.js";
+import { compareScanRuns, comparisonForRun, deleteScanRun, getScanRun, listScanRuns, saveScanRun, updateRunReview, websiteKey } from "../src/history.js";
 import type { Finding, ScanResult } from "../src/types.js";
 
 const directories: string[] = [];
@@ -77,5 +77,20 @@ describe("local scan history", () => {
     expect(comparison.statuses).toEqual({ "representative-changed": "existing", new: "new" });
     expect({ new: comparison.newCount, existing: comparison.existingCount, resolved: comparison.resolvedCount }).toEqual({ new: 1, existing: 1, resolved: 1 });
     expect(comparison.resolvedFindings[0].fingerprint).toBe("resolved");
+  });
+
+  it("only auto-compares runs that used the same disclosure-state setting", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "ada-history-interactions-"));
+    directories.push(directory);
+    const initialOnly = await saveScanRun(result("2026-08-28T12:00:00.000Z", [finding("initial", ".initial")]), directory);
+    const interactionResult = result("2026-08-29T12:00:00.000Z", [finding("revealed", ".revealed")]);
+    interactionResult.metadata.interactionStatesRequested = true;
+    const interactionBase = await saveScanRun(interactionResult, directory);
+    const currentResult = result("2026-08-30T12:00:00.000Z", [finding("revealed", ".revealed")]);
+    currentResult.metadata.interactionStatesRequested = true;
+    const current = await saveScanRun(currentResult, directory);
+
+    expect((await comparisonForRun(current, undefined, directory)).baseRunId).toBe(interactionBase.id);
+    await expect(comparisonForRun(current, initialOnly.id, directory)).rejects.toThrow("same disclosure-state scan setting");
   });
 });

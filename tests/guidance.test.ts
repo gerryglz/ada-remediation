@@ -60,7 +60,7 @@ describe("remediation guidance", () => {
       severity: "serious",
       wcagLevel: "AA",
       wcag: ["WCAG 1.4.3"],
-      location: { url: "https://example.com/", selector: ".hero strong" },
+      location: { url: "https://example.com/", selector: ".hero strong", interactionState: "Account actions", interactionTrigger: "#account-disclosure" },
       evidence: '<strong style="color:#999">Read more</strong>',
       renderedHtmlContext: {
         html: '<p class="hero"><strong style="color:#999">Read more</strong><a href="/learn">Learn more</a></p>',
@@ -80,6 +80,8 @@ describe("remediation guidance", () => {
     expect(prompt).toContain("implementation technology is unknown");
     expect(prompt).toContain("Issue category: Color");
     expect(prompt).toContain("Affected selector: .hero strong");
+    expect(prompt).toContain("Revealed state: after opening Account actions");
+    expect(prompt).toContain("Disclosure trigger: #account-disclosure");
     expect(prompt).toContain("Rendered HTML context: <p class=\"hero\">");
     expect(prompt).not.toContain("Suggested starting point:");
     expect(prompt).toContain("Do not hide the element, suppress the scanner rule");
