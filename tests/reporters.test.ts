@@ -183,7 +183,11 @@ describe("reporters", () => {
     expect(html).toContain("Individual findings");
     expect(html).toContain("function findingNav(f)");
     expect(html).toContain("queueHeading.textContent='Finding list'");
-    expect(html).toContain("Expand a child to inspect its failed condition");
+    expect(html).toContain("Each collapsed card shows the affected element");
+    expect(html).toContain("childElementName");
+    expect(html).toContain("Affected pages for this finding");
+    expect(html).toContain("CSS selector");
+    expect(html).not.toContain("const pageSection=titledSection('Affected pages')");
     expect(html).toContain("Issue patterns");
     expect(html).toContain("combinedGroupPrompt");
     expect(html).toContain("Combined AI remediation prompt");
@@ -200,7 +204,7 @@ describe("reporters", () => {
     expect(html).toContain("@media(prefers-reduced-motion:reduce)");
     expect(html).not.toContain("Child findings shown below");
     expect(html).toContain("Corrections shared by multiple findings");
-    expect(html).toContain("Child findings and element-level fixes");
+    expect(html).toContain("Findings to review");
     expect(html).toContain("item.stage+' stage'");
     expect(html).toContain("item.attempts");
     expect(html).toContain("#f7f4ed");
