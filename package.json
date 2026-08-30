@@ -2,12 +2,21 @@
   "name": "ada-remediation",
   "version": "0.1.0",
   "description": "Accessibility auditing and conservative remediation CLI for websites and source repositories.",
+  "homepage": "https://github.com/gerryglz/ada-remediation#readme",
+  "bugs": {
+    "url": "https://github.com/gerryglz/ada-remediation/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gerryglz/ada-remediation.git"
+  },
   "type": "module",
   "bin": {
     "ada-assistant": "dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -16,7 +25,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm test && npm run build",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run check",
+    "release:check": "npm run check && npm pack --dry-run"
   },
   "keywords": [
     "accessibility",
@@ -26,6 +38,9 @@
     "a11y"
   ],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=20"
   },
