@@ -8,6 +8,7 @@ import { manualReviewChecklist } from "../manual.js";
 import { buildRemediationGuidance, buildRemediationPrompt, findingIssueCategory, remediationSummary } from "../guidance.js";
 import { buildFindingGroups, consolidateCommonFindings } from "../findings.js";
 import { navigateForAccessibilityScan, PageNavigationError } from "../navigation.js";
+import { formatHtmlSnippet } from "../html.js";
 
 const require = createRequire(import.meta.url);
 const axePath = require.resolve("axe-core/axe.min.js");
@@ -74,7 +75,12 @@ function normalizeViolation(violation: AxeViolation, node: AxeNode, url: string,
     wcag: normalizeWcag(violation.tags),
     location,
     evidence: node.html,
-    ...(node.renderedHtmlContext ? { renderedHtmlContext: node.renderedHtmlContext } : {}),
+    ...(node.renderedHtmlContext ? {
+      renderedHtmlContext: {
+        ...node.renderedHtmlContext,
+        html: node.renderedHtmlContext.truncated ? node.renderedHtmlContext.html : formatHtmlSnippet(node.renderedHtmlContext.html),
+      },
+    } : {}),
     explanation: violation.description,
     impact: node.failureSummary ?? `axe-core classified this issue as ${severity}.`,
     remediation: remediationSummary(remediationGuidance),
