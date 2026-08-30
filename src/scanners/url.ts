@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
-import { LEGAL_NOTICE, type ContrastEvidence, type Finding, type FindingComponent, type ScanResult, type Severity, type VisualEvidence, type WcagLevel } from "../types.js";
+import { LEGAL_NOTICE, type ContrastEvidence, type Finding, type FindingComponent, type RenderedHtmlContext, type ScanResult, type Severity, type VisualEvidence, type WcagLevel } from "../types.js";
 import { fingerprintFinding, TOOL_VERSION } from "../utils.js";
 import { buildCodeSuggestion } from "../suggestions.js";
 import { axeTagsForWcagLevel, DEFAULT_WCAG_LEVEL, wcagLevelFromTags } from "../wcag.js";
@@ -8,6 +8,7 @@ import { manualReviewChecklist } from "../manual.js";
 import { buildRemediationGuidance, buildRemediationPrompt, findingIssueCategory, remediationSummary } from "../guidance.js";
 import { buildFindingGroups, consolidateCommonFindings } from "../findings.js";
 import { navigateForAccessibilityScan, PageNavigationError } from "../navigation.js";
+import { formatHtmlSnippet } from "../html.js";
 
 const require = createRequire(import.meta.url);
 const axePath = require.resolve("axe-core/axe.min.js");
@@ -17,6 +18,7 @@ interface AxeNode {
   target: string[];
   failureSummary?: string;
   component?: FindingComponent;
+  renderedHtmlContext?: RenderedHtmlContext;
 }
 
 interface AxeViolation {
@@ -73,6 +75,12 @@ function normalizeViolation(violation: AxeViolation, node: AxeNode, url: string,
     wcag: normalizeWcag(violation.tags),
     location,
     evidence: node.html,
+    ...(node.renderedHtmlContext ? {
+      renderedHtmlContext: {
+        ...node.renderedHtmlContext,
+        html: node.renderedHtmlContext.truncated ? node.renderedHtmlContext.html : formatHtmlSnippet(node.renderedHtmlContext.html),
+      },
+    } : {}),
     explanation: violation.description,
     impact: node.failureSummary ?? `axe-core classified this issue as ${severity}.`,
     remediation: remediationSummary(remediationGuidance),
@@ -185,13 +193,17 @@ async function scanPage(
       const availableTags = new Set(axe.getRules().flatMap((rule) => rule.tags));
       const supportedTags = runOnlyTags.filter((tag) => availableTags.has(tag));
       const audit = await axe.run(document, { runOnly: { type: "tag", values: supportedTags } });
-      const componentFor = (selectorParts: string[]): FindingComponent | undefined => {
+      const elementFor = (selectorParts: string[]): Element | null => {
         let element: Element | null = null;
         try {
           element = document.querySelector(selectorParts.join(" "));
         } catch {
-          return undefined;
+          return null;
         }
+        return element;
+      };
+      const componentFor = (selectorParts: string[]): FindingComponent | undefined => {
+        const element = elementFor(selectorParts);
         if (!element) return undefined;
         const menu = element.closest('nav,[role="navigation"],[role="menu"],[role="menubar"]');
         const isMenuItem = element.matches('[role="menuitem"]');
@@ -225,9 +237,24 @@ async function scanPage(
           selector,
         };
       };
+      const renderedHtmlContextFor = (selectorParts: string[], detectedHtml: string): RenderedHtmlContext => {
+        const maximumLength = 12_000;
+        const element = elementFor(selectorParts);
+        if (!element) {
+          return { html: detectedHtml.slice(0, maximumLength), scope: "element", truncated: detectedHtml.length > maximumLength };
+        }
+        const parentHtml = element.parentElement?.outerHTML;
+        const useParent = Boolean(parentHtml && parentHtml.length <= maximumLength);
+        const html = useParent ? parentHtml! : element.outerHTML;
+        return { html: html.slice(0, maximumLength), scope: useParent ? "parent" : "element", truncated: html.length > maximumLength };
+      };
       const violations = audit.violations.map((violation) => ({
         ...violation,
-        nodes: violation.nodes.map((node) => ({ ...node, component: componentFor(node.target) })),
+        nodes: violation.nodes.map((node) => ({
+          ...node,
+          component: componentFor(node.target),
+          renderedHtmlContext: renderedHtmlContextFor(node.target, node.html),
+        })),
       }));
       const links = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]")).map((link) => link.href);
       return { violations, links, pageTitle: document.title };

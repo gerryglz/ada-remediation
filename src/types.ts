@@ -62,6 +62,12 @@ export interface VisualEvidence {
   description: string;
 }
 
+export interface RenderedHtmlContext {
+  html: string;
+  scope: "parent" | "element";
+  truncated: boolean;
+}
+
 export interface CodeSuggestion {
   title: string;
   before: string;
@@ -119,6 +125,7 @@ export interface Finding {
   wcag: string[];
   location: SourceLocation;
   evidence: string;
+  renderedHtmlContext?: RenderedHtmlContext;
   explanation: string;
   impact: string;
   remediation: string;

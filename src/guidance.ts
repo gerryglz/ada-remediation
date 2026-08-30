@@ -186,6 +186,7 @@ export function buildRemediationPrompt(finding: Finding): string {
   const verification = guidance?.verify?.length
     ? guidance.verify
     : ["Retest the affected element with the automated rule, keyboard navigation, and relevant assistive technology."];
+  const renderedContext = finding.renderedHtmlContext?.html ?? finding.evidence;
   return [
     "Fix the following web accessibility finding in this project.",
     "",
@@ -198,12 +199,11 @@ export function buildRemediationPrompt(finding: Finding): string {
     `Automated rule: ${finding.ruleId}`,
     location,
     `Affected selector: ${finding.location.selector ?? "Not provided"}`,
-    `Detected markup: ${finding.evidence}`,
+    `Rendered HTML context: ${renderedContext}`,
     `Failed condition: ${finding.impact}`,
     "",
     "Recommended direction:",
     ...changes.map((item) => `- ${item}`),
-    ...(finding.codeSuggestion ? ["", `Suggested starting point: ${finding.codeSuggestion.after}`] : []),
     "",
     "Requirements:",
     "- Preserve the intended content, visual design, and user behavior unless the accessibility correction requires a deliberate change.",
@@ -230,7 +230,7 @@ export function buildGroupRemediationPrompt(group: FindingGroup, findings: Findi
     `   Page: ${finding.location.url ?? finding.location.file ?? "Locate in the project"}`,
     `   Selector: ${finding.location.selector ?? "Not provided"}`,
     `   Failed condition: ${finding.impact}`,
-    `   Detected markup: ${finding.evidence}`,
+    `   Rendered HTML context: ${finding.renderedHtmlContext?.html ?? finding.evidence}`,
   ]);
   return [
     `Fix all accessibility findings in this ${kind}: ${group.name}.`,

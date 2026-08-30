@@ -62,6 +62,11 @@ describe("remediation guidance", () => {
       wcag: ["WCAG 1.4.3"],
       location: { url: "https://example.com/", selector: ".hero strong" },
       evidence: '<strong style="color:#999">Read more</strong>',
+      renderedHtmlContext: {
+        html: '<p class="hero"><strong style="color:#999">Read more</strong><a href="/learn">Learn more</a></p>',
+        scope: "parent",
+        truncated: false,
+      },
       explanation: "Text must have sufficient contrast.",
       impact: "Element has insufficient color contrast of 2.8:1.",
       remediation: "Increase the contrast ratio.",
@@ -75,6 +80,8 @@ describe("remediation guidance", () => {
     expect(prompt).toContain("implementation technology is unknown");
     expect(prompt).toContain("Issue category: Color");
     expect(prompt).toContain("Affected selector: .hero strong");
+    expect(prompt).toContain("Rendered HTML context: <p class=\"hero\">");
+    expect(prompt).not.toContain("Suggested starting point:");
     expect(prompt).toContain("Do not hide the element, suppress the scanner rule");
     expect(findingRemediationTheme(finding)).toMatchObject({ key: "color-contrast", name: "Color contrast" });
 
@@ -92,5 +99,6 @@ describe("remediation guidance", () => {
     expect(groupPrompt).toContain("1. Elements must meet minimum color contrast ratio thresholds");
     expect(groupPrompt).toContain("2. Elements must meet minimum color contrast ratio thresholds");
     expect(groupPrompt).toContain("Selector: .card p");
+    expect(groupPrompt).toContain("Rendered HTML context:");
   });
 });
