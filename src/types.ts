@@ -10,6 +10,8 @@ export interface SourceLocation {
   line?: number;
   column?: number;
   selector?: string;
+  interactionState?: string;
+  interactionTrigger?: string;
 }
 
 export interface FindingOccurrence {
@@ -165,6 +167,8 @@ export interface ScanMetadata {
   pagesOrFilesScanned: number;
   findingOccurrences?: number;
   commonFindings?: number;
+  interactionStatesScanned?: number;
+  interactionStatesRequested?: boolean;
   wcagLevel?: WcagLevel;
   incomplete?: Array<{ url: string; reason: string; stage?: "navigation" | "audit"; attempts?: number }>;
 }

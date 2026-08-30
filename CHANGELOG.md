@@ -8,12 +8,15 @@ All notable changes to this project will be documented in this file.
 
 - Dashboard self-accessibility CI across primary application, dialog, error, responsive, and downloadable-report states.
 - Keyboard focus, activation, dialog-return, and horizontal-reflow browser assertions.
+- Opt-in disclosure-state scanning for visible native controls with valid `aria-expanded` and `aria-controls` relationships.
+- Reproduction context for findings exposed only after a disclosure is opened, including the state name and trigger selector in dashboard, terminal, JSON, HTML, and AI-remediation output.
 
 ### Fixed
 
 - Scrollable code and AI-prompt regions are now keyboard focusable.
 - Grouped-finding field labels meet WCAG AA text-contrast thresholds on tinted cards.
 - History and visual-evidence dialogs now expose explicit accessible names.
+- Report-view tabs no longer pass through low-contrast intermediate colors while their selected state changes.
 
 ## 0.1.0 — 2026-08-30
 

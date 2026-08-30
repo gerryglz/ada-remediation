@@ -29,6 +29,7 @@ export interface ScanRunSummary {
   pagesScanned: number;
   findings: number;
   occurrences: number;
+  interactionStatesRequested: boolean;
   manualCompleted: number;
   manualTotal: number;
 }
@@ -86,6 +87,7 @@ function summary(run: SavedScanRun): ScanRunSummary {
     pagesScanned: run.result.metadata.pagesOrFilesScanned,
     findings: run.result.findings.length,
     occurrences: run.result.metadata.findingOccurrences ?? run.result.findings.reduce((total, finding) => total + (finding.occurrences?.length || 1), 0),
+    interactionStatesRequested: Boolean(run.result.metadata.interactionStatesRequested),
     manualCompleted: run.review.completedManualIds.length,
     manualTotal: run.result.manualChecks.length,
   };
@@ -210,9 +212,14 @@ export function compareScanRuns(current: SavedScanRun, base?: SavedScanRun): Sca
 export async function comparisonForRun(current: SavedScanRun, baseId: string | undefined, directory = defaultHistoryDirectory()): Promise<ScanComparison> {
   let base = baseId ? await getScanRun(baseId, directory) : undefined;
   if (base && base.targetKey !== current.targetKey) throw new Error("Comparison runs must belong to the same website.");
+  if (base && Boolean(base.result.metadata.interactionStatesRequested) !== Boolean(current.result.metadata.interactionStatesRequested)) {
+    throw new Error("Comparison runs must use the same disclosure-state scan setting.");
+  }
   if (!base && !baseId) {
     const summaries = await listScanRuns(current.result.metadata.target, directory);
-    const previous = summaries.find((candidate) => candidate.id !== current.id && candidate.completedAt < current.result.metadata.completedAt);
+    const previous = summaries.find((candidate) => candidate.id !== current.id
+      && candidate.completedAt < current.result.metadata.completedAt
+      && candidate.interactionStatesRequested === Boolean(current.result.metadata.interactionStatesRequested));
     base = previous ? await getScanRun(previous.id, directory) : undefined;
   }
   return compareScanRuns(current, base);

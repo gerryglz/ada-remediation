@@ -9,6 +9,9 @@ describe("reporters", () => {
     result.metadata.wcagLevel = "AAA";
     result.findings[0].location.url = "https://example.com/problem";
     result.findings[0].location.pageTitle = "Example problem page";
+    result.findings[0].location.interactionState = "Account actions";
+    result.findings[0].location.interactionTrigger = "#account-disclosure";
+    result.metadata.interactionStatesScanned = 1;
     result.findings[0].helpUrl = "https://dequeuniversity.com/rules/axe/4.13/image-alt";
     result.findings[0].title = "<object> elements must have alternative text";
     result.findings[0].remediationGuidance = {
@@ -64,6 +67,8 @@ describe("reporters", () => {
     expect(terminalReport(result)).toContain("Recurring Navigation menu: 2 pages / 2 occurrences");
     expect(terminalReport(result)).toContain("Finding groups:");
     expect(terminalReport(result)).toContain("Component — Primary navigation: 2 findings");
+    expect(terminalReport(result)).toContain("Disclosure states opened: 1");
+    expect(terminalReport(result)).toContain("after opening Account actions");
     const html = htmlReport(result);
     expect(html).toContain("Findings in context");
     expect(html).toContain("Conformance target:</strong> WCAG 2.2 Level AAA");
@@ -79,6 +84,9 @@ describe("reporters", () => {
     expect(html).toContain("Open large screenshot");
     expect(html).toContain("Finding summary");
     expect(html).toContain("Where it was found");
+    expect(html).toContain("Revealed interaction state");
+    expect(html).toContain("#account-disclosure");
+    expect(html).toContain("States opened");
     expect(html).toContain("Navigation menu</span>");
     expect(html).toContain(".component-badge{border:1px solid var(--accent-orange)");
     expect(html).toContain("2 PAGES");
@@ -227,6 +235,8 @@ describe("reporters", () => {
     expect(html).toContain("#f7f4ed");
     expect(html).toContain("Download HTML report");
     expect(html).toContain("Capture screenshots");
+    expect(html).toContain('id="interaction-states"');
+    expect(html).toContain("Scan disclosure states");
     expect(html).toContain("WCAG 2.2 conformance target");
     expect(html).toContain("Level A — essential");
     expect(html).toContain("Level AA — common target");

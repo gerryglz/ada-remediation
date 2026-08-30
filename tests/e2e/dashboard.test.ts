@@ -108,4 +108,33 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#run-notes").inputValue()).resolves.toBe("Keyboard review assigned to the accessibility team.");
     expect(consoleErrors).toEqual([]);
   });
+
+  it("audits opt-in disclosure states and records how to reproduce a revealed finding", async () => {
+    const fixture = await startFixtureServer();
+    fixtureServer = fixture.server;
+    historyDirectory = await mkdtemp(join(tmpdir(), "ada-dashboard-interactions-"));
+    const dashboard = await startUiServer({ host: "127.0.0.1", port: 0, historyDirectory });
+    uiServer = dashboard.server;
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+
+    await page.goto(dashboard.url);
+    await page.locator("#url").fill(fixture.url);
+    await page.locator("#screenshots").uncheck();
+    await page.locator("#interaction-states").check();
+    await page.getByRole("button", { name: "Scan page" }).click();
+    await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
+
+    const report = await (await page.request.get(`${dashboard.url}/api/report.json`)).json();
+    const revealed = report.findings.find((finding: { ruleId: string }) => finding.ruleId === "button-name");
+    expect(report.metadata.interactionStatesScanned).toBe(1);
+    expect(revealed.location).toMatchObject({
+      interactionState: "Account actions",
+      interactionTrigger: "#account-disclosure",
+    });
+
+    await page.getByText("After opening Account actions", { exact: false }).first().click();
+    await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Revealed interaction state");
+    await expect(page.locator("#finding-detail").textContent()).resolves.toContain("#account-disclosure");
+  });
 });

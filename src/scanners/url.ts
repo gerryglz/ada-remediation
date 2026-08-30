@@ -174,8 +174,9 @@ async function scanPage(
   captureScreenshots: boolean,
   screenshotBudget: { remaining: number },
   axeTags: string[],
+  interactionStateLimit: number,
   reportStage: (fraction: number, phase: UrlScanProgress["phase"], message: string) => void,
-): Promise<{ findings: Finding[]; links: string[] }> {
+): Promise<{ findings: Finding[]; links: string[]; interactionStatesScanned: number }> {
   await navigateForAccessibilityScan(page, url, timeout, (attempt, maximumAttempts) => {
     reportStage(0.05, "loading", `Opening ${url}${attempt > 1 ? ` — retry ${attempt} of ${maximumAttempts}` : ""}`);
   });
@@ -183,7 +184,7 @@ async function scanPage(
   let result: { violations: AxeViolation[]; links: string[]; pageTitle: string };
   try {
     await page.addScriptTag({ path: axePath });
-    result = await page.evaluate(async (runOnlyTags) => {
+    const auditDocument = async (): Promise<{ violations: AxeViolation[]; links: string[]; pageTitle: string }> => page.evaluate(async (runOnlyTags) => {
       const axe = (window as unknown as {
         axe: {
           getRules: () => Array<{ tags: string[] }>;
@@ -259,49 +260,99 @@ async function scanPage(
       const links = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]")).map((link) => link.href);
       return { violations, links, pageTitle: document.title };
     }, axeTags);
+    result = await auditDocument();
+
+    const findings: Finding[] = [];
+    const seenFingerprints = new Set<string>();
+    let interactionStatesScanned = 0;
+    const collectFindings = async (
+      auditResult: { violations: AxeViolation[]; pageTitle: string },
+      interaction?: { name: string; selector: string },
+    ): Promise<void> => {
+      const totalNodes = auditResult.violations.reduce((total, violation) => total + violation.nodes.length, 0);
+      let processedNodes = 0;
+      reportStage(0.55, "evidence", totalNodes ? `Reviewing ${totalNodes} detected issue${totalNodes === 1 ? "" : "s"} and collecting evidence.` : "No automated violations found. Finalizing this page.");
+      for (const violation of auditResult.violations) {
+        for (const node of violation.nodes) {
+          const finding = normalizeViolation(violation, node, url, auditResult.pageTitle);
+          processedNodes += 1;
+          if (seenFingerprints.has(finding.fingerprint)) continue;
+          seenFingerprints.add(finding.fingerprint);
+          if (interaction) {
+            finding.location.interactionState = interaction.name;
+            finding.location.interactionTrigger = interaction.selector;
+          }
+          if (["color-contrast", "color-contrast-enhanced"].includes(finding.ruleId)) {
+            finding.contrast = await captureContrastEvidence(page, finding.location.selector!, node.failureSummary);
+            finding.codeSuggestion = buildCodeSuggestion(finding.ruleId, node.html, finding.contrast);
+            finding.remediationGuidance = buildRemediationGuidance({
+              ruleId: finding.ruleId,
+              title: finding.title,
+              failureSummary: node.failureSummary,
+              evidence: node.html,
+              selector: finding.location.selector!,
+              codeSuggestion: finding.codeSuggestion,
+            });
+            finding.remediation = remediationSummary(finding.remediationGuidance);
+            if (finding.contrast?.ratio && finding.contrast.requiredRatio) {
+              finding.remediation = `The measured ${finding.contrast.ratio}:1 contrast must reach at least ${finding.contrast.requiredRatio}:1. Change the foreground or background color in every interactive state, then measure the computed result again.`;
+            }
+          }
+          if (captureScreenshots && screenshotBudget.remaining > 0) {
+            finding.screenshot = await captureScreenshot(page, finding.location.selector!, finding.title);
+            if (finding.screenshot) screenshotBudget.remaining -= 1;
+          }
+          findings.push(finding);
+          reportStage(0.55 + 0.4 * (processedNodes / Math.max(1, totalNodes)), "evidence", `Collected evidence for ${processedNodes} of ${totalNodes} detected issues.`);
+        }
+      }
+    };
+
+    await collectFindings(result);
+    if (interactionStateLimit > 0) {
+      const disclosures = await page.evaluate((limit) => {
+        const visible = (element: HTMLElement): boolean => Boolean(element.getClientRects().length) && getComputedStyle(element).visibility !== "hidden";
+        return [...document.querySelectorAll<HTMLButtonElement>('button[aria-expanded="false"][aria-controls]')]
+          .filter((button) => !button.disabled && visible(button) && (!button.form || button.type === "button"))
+          .flatMap((button) => {
+            const controls = button.getAttribute("aria-controls")?.trim() ?? "";
+            if (!controls || /\s/.test(controls) || !document.getElementById(controls)) return [];
+            const selector = button.id
+              ? `#${CSS.escape(button.id)}`
+              : `button[aria-controls="${CSS.escape(controls)}"]`;
+            if (document.querySelectorAll(selector).length !== 1) return [];
+            const name = button.getAttribute("aria-label")?.trim() || button.textContent?.replace(/\s+/g, " ").trim() || button.title.trim() || `Disclosure for #${controls}`;
+            return [{ selector, controls, targetSelector: `#${CSS.escape(controls)}`, name }];
+          })
+          .slice(0, limit);
+      }, interactionStateLimit);
+
+      for (const disclosure of disclosures) {
+        const trigger = page.locator(disclosure.selector).first();
+        try {
+          reportStage(0.5, "analyzing", `Opening “${disclosure.name}” and auditing its revealed state.`);
+          await trigger.click({ timeout: Math.min(3_000, timeout), noWaitAfter: true });
+          await page.waitForTimeout(250);
+          const opened = await trigger.getAttribute("aria-expanded") === "true"
+            && await page.locator(disclosure.targetSelector).first().isVisible().catch(() => false);
+          if (!opened) continue;
+          interactionStatesScanned += 1;
+          await collectFindings(await auditDocument(), { name: disclosure.name, selector: disclosure.selector });
+          if (await trigger.getAttribute("aria-expanded") === "true") {
+            await trigger.click({ timeout: 2_000, noWaitAfter: true }).catch(() => undefined);
+            await page.waitForTimeout(100);
+          }
+        } catch {
+          // A disclosure that cannot be opened safely is skipped without failing the page scan.
+        }
+      }
+    }
+
+    reportStage(1, "scanning", `Finished ${url}`);
+    return { findings, links: result.links, interactionStatesScanned };
   } catch (error) {
     throw new PageAuditError(error);
   }
-
-  const findings: Finding[] = [];
-  const totalNodes = result.violations.reduce((total, violation) => total + violation.nodes.length, 0);
-  let processedNodes = 0;
-  reportStage(0.55, "evidence", totalNodes ? `Reviewing ${totalNodes} detected issue${totalNodes === 1 ? "" : "s"} and collecting evidence.` : "No automated violations found. Finalizing this page.");
-  for (const violation of result.violations) {
-    for (const node of violation.nodes) {
-      const finding = normalizeViolation(violation, node, url, result.pageTitle);
-      if (["color-contrast", "color-contrast-enhanced"].includes(finding.ruleId)) {
-        finding.contrast = await captureContrastEvidence(page, finding.location.selector!, node.failureSummary);
-        finding.codeSuggestion = buildCodeSuggestion(finding.ruleId, node.html, finding.contrast);
-        finding.remediationGuidance = buildRemediationGuidance({
-          ruleId: finding.ruleId,
-          title: finding.title,
-          failureSummary: node.failureSummary,
-          evidence: node.html,
-          selector: finding.location.selector!,
-          codeSuggestion: finding.codeSuggestion,
-        });
-        finding.remediation = remediationSummary(finding.remediationGuidance);
-        if (finding.contrast?.ratio && finding.contrast.requiredRatio) {
-          finding.remediation = `The measured ${finding.contrast.ratio}:1 contrast must reach at least ${finding.contrast.requiredRatio}:1. Change the foreground or background color in every interactive state, then measure the computed result again.`;
-        }
-      }
-      if (captureScreenshots && screenshotBudget.remaining > 0) {
-        finding.screenshot = await captureScreenshot(page, finding.location.selector!, finding.title);
-        if (finding.screenshot) screenshotBudget.remaining -= 1;
-      }
-      findings.push(finding);
-      processedNodes += 1;
-      reportStage(0.55 + 0.4 * (processedNodes / Math.max(1, totalNodes)), "evidence", `Collected evidence for ${processedNodes} of ${totalNodes} detected issues.`);
-    }
-  }
-
-  reportStage(1, "scanning", `Finished ${url}`);
-
-  return {
-    findings,
-    links: result.links,
-  };
 }
 
 export interface UrlScanOptions {
@@ -311,6 +362,7 @@ export interface UrlScanOptions {
   crawl?: boolean;
   captureScreenshots?: boolean;
   screenshotLimit?: number;
+  interactionStateLimit?: number;
   wcagLevel?: WcagLevel;
   onProgress?: (progress: UrlScanProgress) => void;
 }
@@ -336,6 +388,7 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
   const findings: Finding[] = [];
   const incomplete: Array<{ url: string; reason: string; stage?: "navigation" | "audit"; attempts?: number }> = [];
   const screenshotBudget = { remaining: options.screenshotLimit ?? 50 };
+  let interactionStatesScanned = 0;
   const queued = targets.map((target) => new URL(target).href);
   const allowedOrigins = new Set(queued.map((target) => new URL(target).origin));
   const visited = new Set<string>();
@@ -378,8 +431,9 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
         });
       };
       try {
-        const pageResult = await scanPage(page, url, timeout, options.captureScreenshots ?? true, screenshotBudget, axeTags, reportStage);
+        const pageResult = await scanPage(page, url, timeout, options.captureScreenshots ?? true, screenshotBudget, axeTags, options.interactionStateLimit ?? 0, reportStage);
         findings.push(...pageResult.findings);
+        interactionStatesScanned += pageResult.interactionStatesScanned;
         if (options.crawl) {
           for (const href of pageResult.links) {
             try {
@@ -435,6 +489,8 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
       pagesOrFilesScanned: visited.size - incomplete.length,
       findingOccurrences: findings.length,
       commonFindings: consolidatedFindings.filter((finding) => finding.scope === "common").length,
+      interactionStatesScanned,
+      interactionStatesRequested: (options.interactionStateLimit ?? 0) > 0,
       wcagLevel,
       incomplete,
     },

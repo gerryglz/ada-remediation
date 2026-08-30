@@ -88,14 +88,16 @@ addOutputOptions(
     .option("--timeout <milliseconds>", "navigation timeout", (value) => Number.parseInt(value, 10), 30_000)
     .option("--storage-state <file>", "Playwright storage state for an authenticated session")
     .option("--wcag-level <level>", "WCAG 2.2 conformance target: A, AA, or AAA", wcagLevel, "AA")
+    .option("--interaction-states", "open and audit up to 10 safe aria-expanded disclosure controls")
     .option("--no-screenshots", "do not capture highlighted viewport screenshots"),
-).action(async (urls: string[], options: OutputOptions & { timeout: number; storageState?: string; screenshots: boolean; wcagLevel: WcagLevel }) => {
+).action(async (urls: string[], options: OutputOptions & { timeout: number; storageState?: string; screenshots: boolean; wcagLevel: WcagLevel; interactionStates?: boolean }) => {
   await finishScan(
     await scanUrls(urls, {
       timeout: options.timeout,
       storageState: options.storageState,
       wcagLevel: options.wcagLevel,
       captureScreenshots: options.screenshots,
+      interactionStateLimit: options.interactionStates ? 10 : 0,
     }),
     options,
   );
@@ -110,8 +112,9 @@ addOutputOptions(
     .option("--timeout <milliseconds>", "navigation timeout", (value) => Number.parseInt(value, 10), 30_000)
     .option("--storage-state <file>", "Playwright storage state for an authenticated session")
     .option("--wcag-level <level>", "WCAG 2.2 conformance target: A, AA, or AAA", wcagLevel, "AA")
+    .option("--interaction-states", "open and audit up to 10 safe aria-expanded disclosure controls per page")
     .option("--no-screenshots", "do not capture highlighted viewport screenshots"),
-).action(async (url: string, options: OutputOptions & { maxPages: number; timeout: number; storageState?: string; screenshots: boolean; wcagLevel: WcagLevel }) => {
+).action(async (url: string, options: OutputOptions & { maxPages: number; timeout: number; storageState?: string; screenshots: boolean; wcagLevel: WcagLevel; interactionStates?: boolean }) => {
   await finishScan(
     await scanUrls([url], {
       crawl: true,
@@ -120,6 +123,7 @@ addOutputOptions(
       storageState: options.storageState,
       wcagLevel: options.wcagLevel,
       captureScreenshots: options.screenshots,
+      interactionStateLimit: options.interactionStates ? 10 : 0,
     }),
     options,
   );

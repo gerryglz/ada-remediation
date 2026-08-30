@@ -36,25 +36,26 @@ This is the easiest way to test a website when you have its URL.
 3. Paste a complete website URL, such as `https://www.michiganbusiness.org/`.
 4. Choose the **WCAG 2.2 conformance target**. **Level AA** is the default and the most common organizational target. Higher levels include all available automated checks from the lower levels.
 5. Leave **Capture screenshots** selected if you want visual evidence.
-6. Select **Crawl same-origin pages** only when you want more than the supplied page and are authorized to crawl the site.
-7. Click **Scan page**. The progress bar reports the live phase—opening the page, running axe-core, collecting evidence and screenshots, or building the report—plus the current page and an estimated percentage. For crawls, the percentage is based on the selected page limit and may finish early when the site has fewer eligible links.
-8. When a scan finishes, the scan controls collapse automatically so the report can use the full browser height. Select **Show scan controls** in the header whenever you want to change the URL, WCAG target, crawl option, or screenshot option and run another scan.
-9. Review the selected target, severity totals, and **Automated findings**. Select **Hide summary** to collapse the totals and testing notice into a compact bar when you want more vertical space; select **Show summary** to restore them. On desktop, the finding queue and selected finding scroll independently so you can keep your place in both columns. Use the separate **Impact severity** and **WCAG level** controls together to narrow findings—for example, Serious + AAA. On smaller screens, the queue and details stack into one readable page. The review workspace separates the selected result into clearly labeled sections:
+6. Select **Scan disclosure states** to also open up to 10 visible disclosure buttons per page that expose both `aria-expanded="false"` and a valid `aria-controls` target. This can find issues hidden inside collapsed menus, accordions, and similar panels. It is opt-in because it interacts with the tested page.
+7. Select **Crawl same-origin pages** only when you want more than the supplied page and are authorized to crawl the site.
+8. Click **Scan page**. The progress bar reports the live phase—opening the page, running axe-core, opening eligible disclosures, collecting evidence and screenshots, or building the report—plus the current page and an estimated percentage. For crawls, the percentage is based on the selected page limit and may finish early when the site has fewer eligible links.
+9. When a scan finishes, the scan controls collapse automatically so the report can use the full browser height. Select **Show scan controls** in the header whenever you want to change the URL, WCAG target, disclosure-state, crawl, or screenshot option and run another scan.
+10. Review the selected target, severity totals, and **Automated findings**. Select **Hide summary** to collapse the totals and testing notice into a compact bar when you want more vertical space; select **Show summary** to restore them. On desktop, the finding queue and selected finding scroll independently so you can keep your place in both columns. Use the separate **Impact severity** and **WCAG level** controls together to narrow findings—for example, Serious + AAA. On smaller screens, the queue and details stack into one readable page. The review workspace separates the selected result into clearly labeled sections:
    - **Finding summary** explains priority and detection confidence, shows an **A**, **AA**, or **AAA** badge for the individual rule, labels requirements as **WCAG 2.2 · Section X.X.X**, links each one to its exact W3C Understanding page, and labels Deque separately as axe scanner documentation
-   - **Where it was found** provides clickable source-page links and the affected CSS selector
+   - **Where it was found** provides clickable source-page links and the affected CSS selector; findings exposed by an opened disclosure also identify the state name and exact trigger selector needed to reproduce it
    - **Visual evidence** shows a compact screenshot thumbnail that opens into a near-full-window view
    - **Why this was flagged** separates the rule purpose from the specific failed check
    - **Recommended fix** starts with axe-core's exact failed condition, then separates **What to inspect** from **What to change**. Rule-specific advice and the affected HTML element are included even when a safe generic patch is not possible
    - **Rendered HTML context** shows the original browser markup around the affected element; **Suggested change** explains the correction direction without pretending generated code is a production-ready replacement
    - **How to verify the fix** provides a retesting checklist with W3C standards links first, followed by the affected source page and optional Deque/axe scanner details
    - Grouped findings use the affected element or recognizable component pattern as the collapsed-card title instead of repeating the scanner rule name. Each card shows its exact failed condition, recommended action, and page scope before it is opened. Expanding the card reveals clickable affected-page links and labels the CSS selector as technical location information rather than presenting it as the finding name
-10. For an identified text-contrast issue, review **Color contrast evidence** for the computed foreground and background colors, measured ratio, required ratio, and font information. The suggested CSS uses placeholders for approved design tokens; it does not invent production colors.
-11. Select **Manual checklist** and complete the target-aware human-review tasks. Each task includes detailed test steps and direct W3C links. Completion is saved with this local scan run so it returns when you reopen the run. The downloaded HTML report includes a printable, interactive copy of the checklist.
-12. Add **Reviewer notes** for testing performed, decisions, ownership, or follow-up work, then select **Save review**. Notes are stored only with the local run.
-13. Use **Compare with** to select an earlier run for the same website. **New** findings were not present in that run, **Existing** findings remain, and **Resolved** findings were present previously but are absent now.
-14. Select **Scan history** in the application header to reopen or delete saved runs. Runs are grouped by website origin.
-15. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report. Both record the selected conformance target, automated findings, contrast evidence when available, and manual-review tasks.
-16. Press `Ctrl+C` in the terminal when you are finished to stop the dashboard.
+11. For an identified text-contrast issue, review **Color contrast evidence** for the computed foreground and background colors, measured ratio, required ratio, and font information. The suggested CSS uses placeholders for approved design tokens; it does not invent production colors.
+12. Select **Manual checklist** and complete the target-aware human-review tasks. Each task includes detailed test steps and direct W3C links. Completion is saved with this local scan run so it returns when you reopen the run. The downloaded HTML report includes a printable, interactive copy of the checklist.
+13. Add **Reviewer notes** for testing performed, decisions, ownership, or follow-up work, then select **Save review**. Notes are stored only with the local run.
+14. Use **Compare with** to select an earlier run for the same website. **New** findings were not present in that run, **Existing** findings remain, and **Resolved** findings were present previously but are absent now.
+15. Select **Scan history** in the application header to reopen or delete saved runs. Runs are grouped by website origin.
+16. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report. Both record the selected conformance target, automated findings, contrast evidence when available, and manual-review tasks.
+17. Press `Ctrl+C` in the terminal when you are finished to stop the dashboard.
 
 The dashboard runs locally on your computer and binds to `127.0.0.1` by default. It does not upload reports or screenshots to an external service. Screenshots can contain visible page information, including information from authenticated pages, so review them before sharing.
 
@@ -256,6 +257,19 @@ The rendered-page scanner identifies the nearest semantic component around each 
 Selecting either group shows corrections that apply to multiple children and expandable element-level evidence; every child contains its own affected-page links. The group also provides one **Combined AI remediation prompt** containing every child rule, URL, selector, failed condition, rendered HTML context, recommended direction, and verification requirement. Grouped children do not repeat separate prompts in the dashboard. Sidebar finding titles do not use positional numbers because filtering and grouping make those positions unstable. Grouping changes presentation only: distinct finding and occurrence totals remain intact.
 
 Every automated finding also receives a compact issue-category badge such as **COLOR**, **CONTENT**, **ARIA**, **STRUCTURE**, **KEYBOARD**, **FORMS**, or **MEDIA**. Standalone findings receive an individual **AI remediation prompt**; grouped findings use the combined prompt described above. Prompts are technology-agnostic and tell a coding agent to identify the framework, CMS, template, or component that produces the rendered elements before editing maintained source. Treat the result as implementation guidance, review the proposed change, and complete the listed accessibility verification rather than accepting generated code blindly.
+
+### Optionally scan collapsed disclosure states
+
+The initial rendered page does not expose every menu, accordion, or popover to axe-core. Add `--interaction-states` to a rendered scan, or select **Scan disclosure states** in the dashboard, to inspect a deliberately limited set of revealed states:
+
+```bash
+node dist/cli.js scan-url https://example.com --interaction-states
+node dist/cli.js scan-site https://example.com --max-pages 10 --interaction-states
+```
+
+This mode opens at most 10 visible native `<button>` elements per page that are not form-submission controls, currently expose `aria-expanded="false"`, reference exactly one existing element through `aria-controls`, and actually reveal that target when activated. The report counts opened states and labels each newly exposed finding with the disclosure name and trigger selector needed to reproduce it.
+
+This is not a general crawler or complete interaction test. It does not submit forms, follow arbitrary controls, open controls without the expected ARIA state relationship, exercise validation, test keyboard behavior, or complete multi-step user journeys. Use it only on sites you are authorized to interact with, and follow it with manual keyboard and assistive-technology testing.
 
 ## Testing method 6: scan authenticated pages
 
