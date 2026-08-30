@@ -2,9 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- Dashboard self-accessibility CI across primary application, dialog, error, responsive, and downloadable-report states.
+- Keyboard focus, activation, dialog-return, and horizontal-reflow browser assertions.
+
+### Fixed
+
+- Scrollable code and AI-prompt regions are now keyboard focusable.
+- Grouped-finding field labels meet WCAG AA text-contrast thresholds on tinted cards.
+- History and visual-evidence dialogs now expose explicit accessible names.
+
 ## 0.1.0 — 2026-08-30
 
-Initial public release.
+Initial private release.
 
 ### Added
 

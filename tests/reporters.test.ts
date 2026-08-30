@@ -123,6 +123,7 @@ describe("reporters", () => {
     expect(html).toContain("const levelMatches=activeLevel==='all'||item.dataset.level===activeLevel");
     expect(html).toContain("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html");
     expect(html).toContain("View axe scanner rule details on Deque");
+    expect(html).toContain('<pre tabindex="0">');
     expect(html).toContain("--accent-plum:#ab307e");
     expect(html).toContain("--accent-blue:#6495ed");
     expect(html).toContain("--accent-green:#2f7d5a");
@@ -241,6 +242,10 @@ describe("reporters", () => {
     expect(html).toContain("zero automated axe-core findings");
     expect(html).toContain("Finding list");
     expect(html).toContain("image-dialog");
+    expect(html).toContain('id="image-dialog" aria-labelledby="dialog-title"');
+    expect(html).toContain('id="history-dialog" aria-labelledby="history-title"');
+    expect(html).toContain("pre.tabIndex=0");
+    expect(html).toContain("promptCode.tabIndex=0");
     expect(html).toContain("Finding summary");
     expect(html).toContain("Where it was found");
     expect(html).toContain("How to verify the fix");

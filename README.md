@@ -390,6 +390,16 @@ npm run test:e2e
 
 This starts an isolated local fixture and dashboard on temporary ports, drives the UI in Chromium, performs two real rendered axe-core scans, verifies New and Existing comparison states, saves manual progress and reviewer notes, deletes and reopens history, checks downloadable JSON, and fails on browser console errors. Pull-request CI runs both the fast suite and this browser workflow automatically. Test history is written to a temporary directory and removed afterward.
 
+To run only the dashboard's own accessibility gate:
+
+```bash
+npm run test:a11y
+```
+
+The self-audit injects axe-core into the empty form, active progress, completed grouped findings, expanded child evidence, visual-evidence dialog, manual checklist, scan-history dialog, incomplete-result state, and downloadable HTML report. Any automated WCAG Level A or AA violation fails CI. It also checks keyboard activation and focus return for dialogs, keyboard access to filters and expandable findings, visible input focus, and absence of page-level horizontal overflow at 640px and 320px viewport widths.
+
+This gate prevents known automated regressions; it does not certify that the dashboard conforms to WCAG. Screen-reader behavior, browser zoom, text spacing, forced colors, platform/browser combinations, and usability with people with disabilities still require manual testing.
+
 ## Privacy and security
 
 - Repository scans run locally and do not transmit source code or findings.
