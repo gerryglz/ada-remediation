@@ -2,6 +2,8 @@
 
 `ada-assistant` is an open-source command-line tool for finding accessibility problems in website source code and rendered web pages. It combines source-aware HTML checks with Playwright and axe-core, produces reviewable reports, and previews a deliberately small set of semantics-preserving fixes.
 
+Version `0.1.0` is the initial release. See [CHANGELOG.md](CHANGELOG.md) for its included capabilities and known limitations.
+
 > Automated scanning cannot certify ADA, WCAG, or Section 508 compliance. It does not replace keyboard testing, screen-reader testing, usability review, or evaluation by accessibility professionals and people with disabilities.
 
 ## Install the project

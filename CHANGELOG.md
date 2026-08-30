@@ -1,0 +1,24 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## 0.1.0 — 2026-08-30
+
+Initial public release.
+
+### Added
+
+- Repository scanning for HTML and HTM source with file, line, column, and selector locations.
+- Rendered single-page, multi-URL, same-origin crawl, and authenticated Playwright scans powered by axe-core.
+- WCAG 2.2 Level A, AA, and AAA scan targets with per-finding conformance badges.
+- Local review dashboard with severity and WCAG filters, semantic finding groups, screenshots, contrast evidence, and source links.
+- Rendered HTML context with readable indentation and remediation guidance that distinguishes evidence from suggested changes.
+- Target-aware manual accessibility checklist with direct W3C guidance links.
+- JSON, terminal, self-contained HTML, and SARIF reports.
+- Conservative source-fix previews, accepted-finding baselines, and severity-based CI exit thresholds.
+
+### Limitations
+
+- Automated findings do not certify ADA, WCAG, or Section 508 compliance and require manual accessibility testing.
+- Repository scanning directly analyzes HTML and HTM files; rendered framework applications must also be tested through a running URL.
+- Generated remediation guidance must be reviewed and applied to the maintained source that produces the rendered HTML.

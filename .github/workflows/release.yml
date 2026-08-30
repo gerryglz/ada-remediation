@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - name: Build npm package
+        id: package
+        shell: bash
+        run: |
+          package_file="$(npm pack --silent)"
+          echo "file=${package_file}" >> "${GITHUB_OUTPUT}"
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            "${{ steps.package.outputs.file }}#npm package" \
+            --verify-tag \
+            --generate-notes \
+            --title "ADA Remediation ${GITHUB_REF_NAME}"
