@@ -3,7 +3,9 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    exclude: ["tests/e2e/**", "node_modules/**", "dist/**"],
-    coverage: { reporter: ["text", "html"] },
+    include: ["tests/e2e/**/*.test.ts"],
+    testTimeout: 90_000,
+    hookTimeout: 30_000,
+    fileParallelism: false,
   },
 });

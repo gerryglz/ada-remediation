@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import type { AddressInfo } from "node:net";
 import { htmlReport } from "../reporters/index.js";
 import { scanUrls, type UrlScanProgress } from "../scanners/url.js";
 import type { ScanResult } from "../types.js";
@@ -252,5 +253,6 @@ export async function startUiServer(options: UiServerOptions = {}): Promise<UiSe
     server.once("error", reject);
     server.listen(port, host, () => resolve());
   });
-  return { server, url: `http://${host}:${port}` };
+  const address = server.address() as AddressInfo;
+  return { server, url: `http://${host}:${address.port}` };
 }

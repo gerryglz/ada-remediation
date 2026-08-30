@@ -1,6 +1,7 @@
 {
   "name": "ada-remediation",
   "version": "0.1.0",
+  "private": true,
   "description": "Accessibility auditing and conservative remediation CLI for websites and source repositories.",
   "homepage": "https://github.com/gerryglz/ada-remediation#readme",
   "bugs": {
@@ -23,6 +24,7 @@
     "dev": "tsx src/cli.ts",
     "ui": "npm run build && node dist/cli.js ui",
     "test": "vitest run",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check": "npm run typecheck && npm test && npm run build",
@@ -38,9 +40,6 @@
     "a11y"
   ],
   "license": "MIT",
-  "publishConfig": {
-    "access": "public"
-  },
   "engines": {
     "node": ">=20"
   },
