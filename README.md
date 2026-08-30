@@ -313,7 +313,7 @@ node dist/cli.js fix ada-results.json --apply
 node dist/cli.js scan-repo .
 ```
 
-The tool intentionally does **not** invent alt text, accessible names, heading structure, label text, language, or ARIA relationships. Those decisions require knowledge of the content and user experience.
+The tool intentionally does **not** invent alt text, accessible names, heading structure, label text, language, or ARIA relationships. Those decisions require knowledge of the content and user experience. Suggestions also avoid adding ARIA roles simply to satisfy a scanner. For example, a styled divider such as `<div class="separator" aria-label="Separator">` is treated as decorative when the surrounding markup supports that conclusion: remove the unnecessary `aria-label`, or use `<hr>` if the divider represents a meaningful thematic break.
 
 ## Baseline reference
 

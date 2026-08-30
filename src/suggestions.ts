@@ -4,6 +4,34 @@ function removeAttribute(markup: string, name: string): string {
   return markup.replace(new RegExp(`\\s+${name}\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)`, "gi"), "");
 }
 
+function openingTag(markup: string): string | undefined {
+  return markup.match(/^\s*<[a-z0-9-]+\b[^>]*>/i)?.[0];
+}
+
+function openingTagAttribute(markup: string, name: string): string | undefined {
+  const tag = openingTag(markup);
+  if (!tag) return undefined;
+  const match = tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"));
+  return match?.[1] ?? match?.[2] ?? match?.[3];
+}
+
+function removeOpeningTagAttribute(markup: string, name: string): string {
+  const tag = openingTag(markup);
+  return tag ? markup.replace(tag, removeAttribute(tag, name)) : markup;
+}
+
+function isDecorativeSeparator(markup: string): boolean {
+  const tagName = markup.match(/^\s*<([a-z0-9-]+)/i)?.[1]?.toLowerCase();
+  const label = openingTagAttribute(markup, "aria-label")?.trim().toLowerCase();
+  const className = openingTagAttribute(markup, "class")?.toLowerCase() ?? "";
+  const hasRole = Boolean(openingTagAttribute(markup, "role"));
+  const separatorWords = /(?:^|[\s_-])(separator|divider|spacer|rule)(?:$|[\s_-])/;
+  return (tagName === "div" || tagName === "span")
+    && !hasRole
+    && Boolean(label && /^(separator|divider|decorative (?:separator|divider))$/.test(label))
+    && (separatorWords.test(className) || separatorWords.test(markup.toLowerCase()));
+}
+
 function addAttribute(markup: string, tag: string, attribute: string): string {
   return markup.replace(new RegExp(`<${tag}\\b`, "i"), `<${tag} ${attribute}`);
 }
@@ -26,6 +54,32 @@ export function buildCodeSuggestion(ruleId: string, evidence: string, contrast?:
   const before = normalizedMarkup(evidence);
 
   switch (ruleId) {
+    case "aria-prohibited-attr": {
+      const label = openingTagAttribute(before, "aria-label");
+      if (!label) return undefined;
+      const after = removeOpeningTagAttribute(before, "aria-label");
+      if (isDecorativeSeparator(before)) {
+        return suggestion(
+          "Remove the decorative separator label",
+          before,
+          after,
+          `This generic wrapper appears to be a visual separator. Its aria-label="${label}" does not provide useful semantics because the element has no role to receive that accessible name. If the separator is decorative, remove aria-label and leave the visual CSS unchanged.`,
+          [
+            "If the divider marks a meaningful thematic break in the content, use an <hr> element—generally without an accessible name—instead of labeling a generic <div>.",
+            "Use role=\"separator\" only when this element itself represents a meaningful separator. Do not add a role solely to preserve aria-label or silence the scanner.",
+          ],
+        );
+      }
+      return suggestion(
+        "Remove the unsupported label or use the correct element",
+        before,
+        after,
+        `A generic element without a valid role cannot use aria-label="${label}" to create an accessible name. If this wrapper is only for layout or styling, remove aria-label. If it represents a real control, landmark, or other named object, replace it with the native HTML element that matches its actual purpose before deciding whether an accessible name is needed.`,
+        [
+          "Do not invent a role just to keep aria-label. Any role must match the component's actual behavior and include its required keyboard interaction, states, and relationships.",
+        ],
+      );
+    }
     case "aria-required-parent": {
       let after = removeAttribute(before, "role");
       after = removeAttribute(after, "aria-setsize");
