@@ -99,10 +99,10 @@ describe("dashboard reviewer workflow", () => {
     await page.locator("#history-list .history-row").first().waitFor();
     await expect(page.locator("#history-list .history-row").count()).resolves.toBe(2);
     page.once("dialog", (dialog) => dialog.accept());
-    await page.locator("#history-list .history-row").first().getByRole("button", { name: "Delete" }).click();
+    await page.locator("#history-list .history-row").first().getByRole("button", { name: /Delete scan/ }).click();
     await page.waitForFunction(() => document.querySelectorAll("#history-list .history-row").length === 1);
     await expect(page.locator("#history-list .history-row").count()).resolves.toBe(1);
-    await page.locator("#history-list .history-row").first().getByRole("button", { name: "Open run" }).click();
+    await page.locator("#history-list .history-row").first().getByRole("button", { name: /Open scan/ }).click();
     await page.getByRole("button", { name: "Manual checklist" }).click();
     await expect(page.locator("#finding-list .manual-nav input").first().isChecked()).resolves.toBe(true);
     await expect(page.locator("#run-notes").inputValue()).resolves.toBe("Keyboard review assigned to the accessibility team.");
