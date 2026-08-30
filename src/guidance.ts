@@ -24,6 +24,12 @@ function elementName(markup: string): string {
 }
 
 function ruleSpecificChanges(ruleId: string): string[] {
+  if (ruleId === "aria-prohibited-attr") {
+    return [
+      "Decide whether the affected element is only a visual or layout wrapper. If it is decorative, remove the prohibited aria-* attribute instead of adding semantics that the element does not need.",
+      "If the element represents a real control, landmark, separator, or other semantic object, use the native HTML element that matches its purpose. Add a role only when the behavior truly implements that role.",
+    ];
+  }
   if (ruleId.startsWith("aria-") || ruleId.includes("role")) {
     return [
       "Prefer the native HTML element whose built-in semantics match the component. If ARIA is necessary, correct the role, required parent/child relationship, referenced IDs, and permitted aria-* values identified above.",

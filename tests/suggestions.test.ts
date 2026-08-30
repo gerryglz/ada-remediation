@@ -2,6 +2,30 @@ import { describe, expect, it } from "vitest";
 import { buildCodeSuggestion } from "../src/suggestions.js";
 
 describe("code suggestions", () => {
+  it("removes an unnecessary name from a decorative separator wrapper", () => {
+    const markup = `<div class="fl-module fl-module-separator fl-node-5c810c8d6c475" data-node="5c810c8d6c475" aria-label="Separator">
+  <div class="fl-module-content fl-node-content">
+    <div class="fl-separator" aria-label="Preserve this nested label"></div>
+  </div>
+</div>`;
+    const suggestion = buildCodeSuggestion("aria-prohibited-attr", markup);
+
+    expect(suggestion?.title).toBe("Remove the decorative separator label");
+    expect(suggestion?.after).not.toContain('data-node="5c810c8d6c475" aria-label="Separator"');
+    expect(suggestion?.after).toContain('aria-label="Preserve this nested label"');
+    expect(suggestion?.rationale).toContain("appears to be a visual separator");
+    expect(suggestion?.alternatives?.[0]).toContain("<hr>");
+    expect(suggestion?.alternatives?.[1]).toContain('role="separator"');
+  });
+
+  it("does not invent a role for a generic div with a prohibited accessible name", () => {
+    const suggestion = buildCodeSuggestion("aria-prohibited-attr", '<div class="card-shell" aria-label="Account summary"></div>');
+
+    expect(suggestion?.after).toBe('<div class="card-shell"></div>');
+    expect(suggestion?.rationale).toContain("If this wrapper is only for layout or styling");
+    expect(suggestion?.alternatives?.[0]).toContain("Do not invent a role");
+  });
+
   it("suggests native navigation semantics for orphaned menu items", () => {
     const suggestion = buildCodeSuggestion(
       "aria-required-parent",

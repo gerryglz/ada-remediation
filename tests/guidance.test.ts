@@ -35,6 +35,23 @@ describe("remediation guidance", () => {
     expect(guidance.verify).toHaveLength(3);
   });
 
+  it("carries decorative-separator analysis into the recommended fix", () => {
+    const evidence = '<div class="fl-module fl-module-separator" aria-label="Separator"><div class="fl-separator"></div></div>';
+    const guidance = buildRemediationGuidance({
+      ruleId: "aria-prohibited-attr",
+      title: "Elements must only use permitted ARIA attributes",
+      failureSummary: "Fix all of the following:\n  aria-label attribute cannot be used on a div with no valid role attribute.",
+      evidence,
+      selector: ".fl-module-separator",
+      codeSuggestion: buildCodeSuggestion("aria-prohibited-attr", evidence),
+    });
+
+    expect(guidance.inspect).toContain("Failed condition: aria-label attribute cannot be used on a div with no valid role attribute.");
+    expect(guidance.change[0]).toContain("appears to be a visual separator");
+    expect(guidance.change.join(" ")).toContain("<hr>");
+    expect(remediationSummary(guidance)).toContain("remove aria-label");
+  });
+
   it("classifies findings and builds a technology-agnostic coding-agent prompt", () => {
     const finding: Finding = {
       fingerprint: "contrast",
