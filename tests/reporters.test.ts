@@ -34,6 +34,11 @@ describe("reporters", () => {
     };
     result.findings[0].scope = "common";
     result.findings[0].componentCategory = "Navigation menu";
+    result.findings[0].renderedHtmlContext = {
+      html: '<figure class="feature"><object data="chart.svg"></object><figcaption>Quarterly results</figcaption></figure>',
+      scope: "parent",
+      truncated: false,
+    };
     const component = { key: "header-menu|primary", category: "Header menu" as const, name: "Primary navigation", selector: 'nav[aria-label="Primary"]' };
     result.findings[0].component = component;
     result.findings[1].component = component;
@@ -64,8 +69,13 @@ describe("reporters", () => {
     expect(html).toContain("Conformance target:</strong> WCAG 2.2 Level AAA");
     expect(html).toContain("Example problem page");
     expect(html).toContain("data:image/jpeg;base64,ZmFrZQ==");
-    expect(html).toContain("Before — detected markup");
-    expect(html).toContain("Suggested after — starting point");
+    expect(html).toContain("Rendered HTML context");
+    expect(html).toContain("Original browser HTML · affected element and parent");
+    expect(html).toContain("Quarterly results");
+    expect(html).toContain("Suggested change");
+    expect(html).toContain("It is not a generated replacement block");
+    expect(html).not.toContain("Before — detected markup");
+    expect(html).not.toContain("Suggested after — starting point");
     expect(html).toContain("Open large screenshot");
     expect(html).toContain("Finding summary");
     expect(html).toContain("Where it was found");
@@ -155,6 +165,12 @@ describe("reporters", () => {
     expect(html).toContain("appendTechnicalText");
     expect(html).toContain("aria-[a-z0-9-]+");
     expect(html).toContain("remediationStart");
+    expect(html).toContain("findingRenderedContext");
+    expect(html).toContain("appendRenderedContext");
+    expect(html).toContain("Original browser HTML");
+    expect(html).toContain("It is not a generated replacement block");
+    expect(html).not.toContain("Before and suggested after");
+    expect(html).not.toContain("Suggested after — starting point");
     expect(html).toContain("Expected parent roles");
     expect(html).toContain("technical-values");
     expect(html).toContain("rel=\"icon\"");
