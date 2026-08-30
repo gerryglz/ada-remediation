@@ -4,6 +4,8 @@
 
 Version `0.1.0` is the initial release. See [CHANGELOG.md](CHANGELOG.md) for its included capabilities and known limitations.
 
+The repository and GitHub releases are currently private, and the package is intentionally marked private so it cannot be published to npm accidentally. Install and run it from an authorized checkout for now.
+
 > Automated scanning cannot certify ADA, WCAG, or Section 508 compliance. It does not replace keyboard testing, screen-reader testing, usability review, or evaluation by accessibility professionals and people with disabilities.
 
 ## Install the project
@@ -354,7 +356,16 @@ The normalized result is the boundary between scanners, reporters, baselines, an
 npm run check
 ```
 
-Tests include intentionally accessible and inaccessible fixtures and cover source scanning, source locations, severity-threshold behavior, three safe fix types, dry-run behavior, HTML output, terminal output, and SARIF serialization.
+The fast test suite includes intentionally accessible and inaccessible fixtures and covers source scanning, source locations, severity-threshold behavior, three safe fix types, dry-run behavior, HTML output, terminal output, and SARIF serialization.
+
+Run the browser end-to-end test separately after installing Chromium:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+This starts an isolated local fixture and dashboard on temporary ports, drives the UI in Chromium, performs a real rendered axe-core scan, verifies the reviewer details and downloadable JSON, opens the manual checklist, and fails on browser console errors. Pull-request CI runs both the fast suite and this browser workflow automatically.
 
 ## Privacy and security
 
