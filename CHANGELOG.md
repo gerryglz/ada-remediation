@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - Grouped-finding field labels meet WCAG AA text-contrast thresholds on tinted cards.
 - History and visual-evidence dialogs now expose explicit accessible names.
 - Report-view tabs no longer pass through low-contrast intermediate colors while their selected state changes.
+- Responsive result actions keep a sticky-header scroll offset so their touch targets cannot be obscured after a scan.
 
 ## 0.1.0 — 2026-08-30
 

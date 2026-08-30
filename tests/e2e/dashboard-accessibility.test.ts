@@ -163,6 +163,12 @@ describe("dashboard self-accessibility gate", () => {
     await page.locator("#screenshots").uncheck();
     await page.getByRole("button", { name: "Scan page" }).click();
     await page.locator("#incomplete:not([hidden])").waitFor({ timeout: 60_000 });
+    await page.waitForTimeout(500);
+    const responsiveGeometry = await page.evaluate(() => ({
+      headerBottom: document.querySelector(".app-header")!.getBoundingClientRect().bottom,
+      summaryToggleTop: document.querySelector("#result-summary-toggle")!.getBoundingClientRect().top,
+    }));
+    expect(responsiveGeometry.summaryToggleTop, "result actions must not be obscured by the sticky header").toBeGreaterThanOrEqual(responsiveGeometry.headerBottom);
     await assertDashboardAccessibility(page, "incomplete scan result");
 
     await page.setViewportSize({ width: 320, height: 900 });
