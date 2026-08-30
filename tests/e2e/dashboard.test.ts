@@ -1,5 +1,7 @@
 import { createServer, type Server } from "node:http";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { chromium, type Browser } from "playwright";
 import { startUiServer } from "../../src/ui/server.js";
@@ -32,17 +34,20 @@ describe("dashboard reviewer workflow", () => {
   let fixtureServer: Server | undefined;
   let uiServer: Server | undefined;
   let browser: Browser | undefined;
+  let historyDirectory: string | undefined;
 
   afterEach(async () => {
     await browser?.close();
     await closeServer(uiServer);
     await closeServer(fixtureServer);
+    if (historyDirectory) await rm(historyDirectory, { recursive: true, force: true });
   });
 
   it("scans a rendered page and exposes reviewable findings and downloads", async () => {
     const fixture = await startFixtureServer();
     fixtureServer = fixture.server;
-    const dashboard = await startUiServer({ host: "127.0.0.1", port: 0 });
+    historyDirectory = await mkdtemp(join(tmpdir(), "ada-dashboard-history-"));
+    const dashboard = await startUiServer({ host: "127.0.0.1", port: 0, historyDirectory });
     uiServer = dashboard.server;
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
@@ -72,10 +77,35 @@ describe("dashboard reviewer workflow", () => {
     expect(report.metadata.pagesOrFilesScanned).toBe(1);
     expect(report.findings.length).toBeGreaterThan(0);
     expect(report.findings[0].renderedHtmlContext.html).toContain("\n");
+    await expect(page.locator(".new-metric strong").textContent()).resolves.toBe(String(report.findings.length));
 
     await page.getByRole("button", { name: "Manual checklist" }).click();
     await expect(page.locator("#queue-heading").textContent()).resolves.toBe("Manual checklist");
     await expect(page.locator("#finding-list .manual-nav").count()).resolves.toBeGreaterThan(0);
+    await page.locator("#finding-list .manual-nav input").first().check();
+    await page.locator("#save-state").getByText("Saved locally").waitFor();
+    await page.locator("#run-notes").fill("Keyboard review assigned to the accessibility team.");
+    await page.getByRole("button", { name: "Save review" }).click();
+    await page.locator("#save-state").getByText("Saved locally").waitFor();
+
+    await page.getByRole("button", { name: "Show scan controls" }).click();
+    await page.getByRole("button", { name: "Scan page" }).click();
+    await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
+    await expect(page.locator(".new-metric strong").textContent()).resolves.toBe("0");
+    await expect(page.locator(".existing-metric strong").textContent()).resolves.toBe(String(report.findings.length));
+    await expect(page.locator(".history-status-badge.existing").count()).resolves.toBeGreaterThan(0);
+
+    await page.getByRole("button", { name: "Scan history" }).click();
+    await page.locator("#history-list .history-row").first().waitFor();
+    await expect(page.locator("#history-list .history-row").count()).resolves.toBe(2);
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.locator("#history-list .history-row").first().getByRole("button", { name: "Delete" }).click();
+    await page.waitForFunction(() => document.querySelectorAll("#history-list .history-row").length === 1);
+    await expect(page.locator("#history-list .history-row").count()).resolves.toBe(1);
+    await page.locator("#history-list .history-row").first().getByRole("button", { name: "Open run" }).click();
+    await page.getByRole("button", { name: "Manual checklist" }).click();
+    await expect(page.locator("#finding-list .manual-nav input").first().isChecked()).resolves.toBe(true);
+    await expect(page.locator("#run-notes").inputValue()).resolves.toBe("Keyboard review assigned to the accessibility team.");
     expect(consoleErrors).toEqual([]);
   });
 });
