@@ -10,6 +10,7 @@ import { renderReport, writeReport, type ReportFormat } from "./reporters/index.
 import { scanRepository } from "./scanners/repository.js";
 import { scanUrls } from "./scanners/url.js";
 import type { ScanResult, Severity, WcagLevel } from "./types.js";
+import { removeCurrentUiRuntimeSync, stopUiServer } from "./ui/runtime.js";
 import { startUiServer } from "./ui/server.js";
 import { hasFindingsAtOrAbove, TOOL_VERSION } from "./utils.js";
 import { parseWcagLevel } from "./wcag.js";
@@ -131,12 +132,32 @@ addOutputOptions(
 
 program
   .command("ui")
-  .description("start the local website scanning and reporting dashboard")
+  .description("start or stop the local website scanning and reporting dashboard")
+  .argument("[action]", "start or stop", "start")
   .option("--port <number>", "local dashboard port", (value) => Number.parseInt(value, 10), 4173)
   .option("--host <address>", "listen address", "127.0.0.1")
-  .action(async (options: { port: number; host: string }) => {
+  .action(async (action: string, options: { port: number; host: string }) => {
+    if (action === "stop") {
+      const result = await stopUiServer();
+      process.stdout.write(result.status === "stopped"
+        ? `Stopped the ADA Assistant dashboard at ${result.url}.\n`
+        : "No tracked ADA Assistant dashboard is running.\n");
+      return;
+    }
+    if (action !== "start") throw new InvalidArgumentError("Use ui start or ui stop.");
     const handle = await startUiServer({ port: options.port, host: options.host });
-    process.stdout.write(`ADA Assistant dashboard is running at ${handle.url}\nPress Ctrl+C to stop it.\n`);
+    let closing = false;
+    const close = () => {
+      if (closing) return;
+      closing = true;
+      removeCurrentUiRuntimeSync();
+      handle.server.close();
+      handle.server.closeAllConnections();
+    };
+    process.once("SIGINT", close);
+    process.once("SIGTERM", close);
+    process.once("exit", () => removeCurrentUiRuntimeSync());
+    process.stdout.write(`ADA Assistant dashboard is running at ${handle.url}\nPress Ctrl+C or run \"npm run ui:stop\" from another terminal to stop it.\n`);
   });
 
 program

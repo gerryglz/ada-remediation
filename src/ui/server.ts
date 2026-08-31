@@ -5,11 +5,13 @@ import { htmlReport } from "../reporters/index.js";
 import { scanUrls, type UrlScanProgress } from "../scanners/url.js";
 import type { ManualTaskReview, ScanResult } from "../types.js";
 import { parseWcagLevel, WCAG_UNDERSTANDING_URLS, WCAG_VERSION } from "../wcag.js";
+import { createUiRuntimeRecord, defaultUiRuntimePath, prepareUiRuntime, removeUiRuntime, writeUiRuntime, type UiRuntimeRecord } from "./runtime.js";
 
 export interface UiServerOptions {
   host?: string;
   port?: number;
   historyDirectory?: string;
+  runtimePath?: string | false;
 }
 
 export interface UiServerHandle {
@@ -200,6 +202,11 @@ export async function startUiServer(options: UiServerOptions = {}): Promise<UiSe
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? 4173;
   const historyDirectory = options.historyDirectory ?? defaultHistoryDirectory();
+  const runtimePath = options.runtimePath === false || (options.runtimePath === undefined && port === 0)
+    ? undefined
+    : options.runtimePath ?? defaultUiRuntimePath();
+  if (runtimePath) await prepareUiRuntime(runtimePath);
+  let runtime: UiRuntimeRecord | undefined;
   let latestResult: ScanResult | undefined;
   let latestRunId: string | undefined;
   let scanning = false;
@@ -210,6 +217,22 @@ export async function startUiServer(options: UiServerOptions = {}): Promise<UiSe
       if (req.method === "GET" && requestUrl.pathname === "/favicon.ico") {
         res.writeHead(204, { "Cache-Control": "public, max-age=86400" });
         res.end();
+        return;
+      }
+      if (req.method === "GET" && requestUrl.pathname === "/api/runtime") {
+        sendJson(res, 200, runtime ? { schemaVersion: runtime.schemaVersion, pid: runtime.pid, url: runtime.url, startedAt: runtime.startedAt } : { pid: process.pid });
+        return;
+      }
+      if (req.method === "POST" && requestUrl.pathname === "/api/shutdown") {
+        if (!runtime || req.headers["x-ada-shutdown-token"] !== runtime.shutdownToken) {
+          sendJson(res, 403, { error: "Invalid dashboard shutdown token." });
+          return;
+        }
+        res.once("finish", () => {
+          server.close();
+          server.closeAllConnections();
+        });
+        sendJson(res, 200, { stopping: true });
         return;
       }
       if (req.method === "GET" && requestUrl.pathname === "/") {
@@ -335,10 +358,31 @@ export async function startUiServer(options: UiServerOptions = {}): Promise<UiSe
     }
   });
 
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(port, host, () => resolve());
-  });
+  if (runtimePath) {
+    server.once("close", () => {
+      if (runtime) void removeUiRuntime(runtimePath, runtime.shutdownToken);
+    });
+  }
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(port, host, () => resolve());
+    });
+  } catch (error) {
+    if (runtimePath) await removeUiRuntime(runtimePath);
+    throw error;
+  }
   const address = server.address() as AddressInfo;
-  return { server, url: `http://${host}:${address.port}` };
+  const url = `http://${host}:${address.port}`;
+  if (runtimePath) {
+    runtime = createUiRuntimeRecord(url);
+    try {
+      await writeUiRuntime(runtime, runtimePath);
+    } catch (error) {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      throw error;
+    }
+  }
+  return { server, url };
 }

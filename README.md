@@ -55,7 +55,7 @@ This is the easiest way to test a website when you have its URL.
 14. Use **Compare with** to select an earlier run for the same website. **New** findings were not present in that run, **Existing** findings remain, and **Resolved** findings were present previously but are absent now.
 15. Select **Scan history** in the application header to reopen or delete saved runs. Runs are grouped by website origin.
 16. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report. Both record the selected conformance target, automated findings, contrast evidence when available, and saved manual outcomes and notes.
-17. Press `Ctrl+C` in the terminal when you are finished to stop the dashboard.
+17. Press `Ctrl+C` in the terminal when you are finished. If that terminal is no longer available, run `npm run ui:stop` from the project directory. Both methods stop the tracked dashboard and release its port.
 
 The dashboard runs locally on your computer and binds to `127.0.0.1` by default. It does not upload reports or screenshots to an external service. Screenshots can contain visible page information, including information from authenticated pages, so review them before sharing.
 
@@ -90,8 +90,13 @@ W3C is presented as the primary accessibility standards source. Deque links are 
 
 ## Restart the visual dashboard
 
-1. Return to the terminal where the dashboard is running.
-2. Press `Ctrl+C` once and wait for the command prompt to return.
+1. Return to the terminal where the dashboard is running and press `Ctrl+C` once. If you cannot find that terminal, run this from another terminal in the project directory:
+
+   ```bash
+   npm run ui:stop
+   ```
+
+2. Wait for the command prompt or the `Stopped the ADA Assistant dashboard` message.
 3. From the project directory, update dependencies and restart with a fresh build:
 
    ```bash
@@ -102,9 +107,12 @@ W3C is presented as the primary accessibility standards source. Deque links are 
 
 4. Reload [http://127.0.0.1:4173](http://127.0.0.1:4173) in the browser.
 
-If port 4173 is still occupied or you cannot find the earlier terminal, start the dashboard on another port:
+The dashboard records its process, URL, start time, and a private shutdown token in `~/.ada-remediation/ui-server.json` (under `%USERPROFILE%` on Windows). Starting a second tracked dashboard is refused while the first is active. Stale runtime records are removed automatically, and the stop command sends an authenticated request only to the recorded ADA Assistant server—it does not terminate unrelated Node processes.
+
+If another application owns port 4173, stop the dashboard first and then choose another port:
 
 ```bash
+npm run ui:stop
 npm run ui -- --port 4174
 ```
 
