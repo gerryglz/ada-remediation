@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Finding, ManualReviewStatus, ManualTaskReview, ScanResult, ScanReview } from "./types.js";
+import type { Finding, FindingReview, FindingReviewDisposition, ManualReviewStatus, ManualTaskReview, ScanResult, ScanReview } from "./types.js";
 
 export type FindingHistoryStatus = "new" | "existing";
 
@@ -76,12 +76,29 @@ function isSavedScanRun(value: unknown): value is SavedScanRun {
 }
 
 const manualReviewStatuses = new Set<ManualReviewStatus>(["not-tested", "pass", "needs-attention", "not-applicable"]);
+const findingReviewDispositions = new Set<FindingReviewDisposition>(["unreviewed", "action-required", "accepted-risk", "false-positive"]);
 
 function sanitizeManualReview(value: unknown): ManualTaskReview | undefined {
   if (!value || typeof value !== "object") return undefined;
   const candidate = value as Partial<ManualTaskReview>;
   if (!candidate.status || !manualReviewStatuses.has(candidate.status)) return undefined;
   return { status: candidate.status, notes: typeof candidate.notes === "string" ? candidate.notes.trim().slice(0, 4_000) : "" };
+}
+
+function sanitizeFindingReview(value: unknown): FindingReview | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const candidate = value as Partial<FindingReview>;
+  if (!candidate.disposition || !findingReviewDispositions.has(candidate.disposition)) return undefined;
+  return { disposition: candidate.disposition, notes: typeof candidate.notes === "string" ? candidate.notes.trim().slice(0, 4_000) : "" };
+}
+
+function findingKeys(finding: Finding): Set<string> {
+  return new Set([finding.fingerprint, ...(finding.occurrences ?? []).map((occurrence) => occurrence.fingerprint)]);
+}
+
+function findingsOverlap(left: Finding, right: Finding): boolean {
+  const rightKeys = findingKeys(right);
+  return [...findingKeys(left)].some((key) => rightKeys.has(key));
 }
 
 function normalizeRun(run: SavedScanRun): SavedScanRun {
@@ -101,7 +118,15 @@ function normalizeRun(run: SavedScanRun): SavedScanRun {
       };
     }
   }
-  return { ...run, review: { manualTasks, notes: rawReview.notes.trim().slice(0, 10_000) } };
+  const allowedFindingIds = new Set(run.result.findings.map((finding) => finding.fingerprint));
+  const findings: Record<string, FindingReview> = {};
+  if (rawReview.findings && typeof rawReview.findings === "object") {
+    for (const [fingerprint, value] of Object.entries(rawReview.findings)) {
+      const sanitized = sanitizeFindingReview(value);
+      if (allowedFindingIds.has(fingerprint) && sanitized) findings[fingerprint] = sanitized;
+    }
+  }
+  return { ...run, review: { manualTasks, findings, notes: rawReview.notes.trim().slice(0, 10_000) } };
 }
 
 function summary(run: SavedScanRun): ScanRunSummary {
@@ -129,13 +154,26 @@ async function writeRun(directory: string, run: SavedScanRun): Promise<void> {
 }
 
 export async function saveScanRun(result: ScanResult, directory = defaultHistoryDirectory()): Promise<SavedScanRun> {
+  const previousRuns = await listScanRuns(result.metadata.target, directory);
+  const previousSummary = previousRuns.find((candidate) => candidate.completedAt < result.metadata.completedAt
+    && candidate.wcagLevel === result.metadata.wcagLevel
+    && candidate.interactionStatesRequested === Boolean(result.metadata.interactionStatesRequested));
+  const previous = previousSummary ? await getScanRun(previousSummary.id, directory) : undefined;
+  const findings: Record<string, FindingReview> = {};
+  if (previous) {
+    for (const finding of result.findings) {
+      const match = previous.result.findings.find((candidate) => findingsOverlap(finding, candidate));
+      const inherited = match ? previous.review.findings[match.fingerprint] : undefined;
+      if (inherited) findings[finding.fingerprint] = inherited;
+    }
+  }
   const run: SavedScanRun = {
     schemaVersion: "1.0",
     id: randomUUID(),
     targetKey: websiteKey(result.metadata.target),
     savedAt: new Date().toISOString(),
     result,
-    review: { manualTasks: {}, notes: "" },
+    review: { manualTasks: {}, findings, notes: "" },
   };
   await writeRun(directory, run);
   return run;
@@ -181,8 +219,12 @@ export async function updateRunReview(id: string, review: Partial<RunReview>, di
   const manualTasks = review.manualTasks === undefined ? run.review.manualTasks : Object.fromEntries(Object.entries(review.manualTasks)
     .filter(([manualId, value]) => allowedManualIds.has(manualId) && Boolean(sanitizeManualReview(value)))
     .map(([manualId, value]) => [manualId, sanitizeManualReview(value)!]));
+  const allowedFindingIds = new Set(run.result.findings.map((finding) => finding.fingerprint));
+  const findings = review.findings === undefined ? run.review.findings : Object.fromEntries(Object.entries(review.findings)
+    .filter(([fingerprint, value]) => allowedFindingIds.has(fingerprint) && Boolean(sanitizeFindingReview(value)))
+    .map(([fingerprint, value]) => [fingerprint, sanitizeFindingReview(value)!]));
   const notes = review.notes === undefined ? run.review.notes : review.notes.trim().slice(0, 10_000);
-  const updated = { ...run, review: { manualTasks, notes } };
+  const updated = { ...run, review: { manualTasks, findings, notes } };
   await writeRun(directory, updated);
   return updated;
 }
@@ -199,15 +241,6 @@ export async function deleteScanRun(id: string, directory = defaultHistoryDirect
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
     throw error;
   }
-}
-
-function findingKeys(finding: Finding): Set<string> {
-  return new Set([finding.fingerprint, ...(finding.occurrences ?? []).map((occurrence) => occurrence.fingerprint)]);
-}
-
-function findingsOverlap(left: Finding, right: Finding): boolean {
-  const rightKeys = findingKeys(right);
-  return [...findingKeys(left)].some((key) => rightKeys.has(key));
 }
 
 export function compareScanRuns(current: SavedScanRun, base?: SavedScanRun): ScanComparison {

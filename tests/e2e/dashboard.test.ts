@@ -79,6 +79,25 @@ describe("dashboard reviewer workflow", () => {
     expect(report.findings[0].renderedHtmlContext.html).toContain("\n");
     await expect(page.locator(".new-metric strong").textContent()).resolves.toBe(String(report.findings.length));
 
+    const selectedReviewFingerprints = report.findingGroups?.find((group: { findingFingerprints: string[] }) => group.findingFingerprints.length > 1)?.findingFingerprints
+      ?? [report.findings[0].fingerprint];
+    await page.locator("#finding-detail .finding-review-panel").first().getByRole("button", { name: "Action required", exact: true }).click();
+    await page.locator("#save-state").getByText("Saved locally").waitFor();
+    await page.locator("#finding-detail .finding-review-panel textarea").first().fill("Update the shared component and retest every affected page.");
+    await page.getByRole("button", { name: "Save review" }).click();
+    await page.locator("#save-state").getByText("Saved locally").waitFor();
+    const findingReviewJsonHref = await page.locator("#json-download").getAttribute("href");
+    const findingReviewJson = await (await page.request.get(`${dashboard.url}${findingReviewJsonHref}`)).json();
+    for (const fingerprint of selectedReviewFingerprints) {
+      expect(findingReviewJson.review.findings[fingerprint]).toEqual({
+        disposition: "action-required",
+        notes: "Update the shared component and retest every affected page.",
+      });
+    }
+    await page.locator("#finding-review-filters").getByRole("button", { name: "Action required", exact: true }).click();
+    await expect(page.locator("#queue-count").textContent()).resolves.toContain(`${selectedReviewFingerprints.length} finding`);
+    await page.locator("#finding-review-filters").getByRole("button", { name: "All", exact: true }).click();
+
     await page.getByRole("button", { name: "Manual review" }).click();
     await expect(page.locator("#queue-heading").textContent()).resolves.toBe("Manual review");
     await expect(page.locator("#finding-list .manual-nav").count()).resolves.toBeGreaterThan(0);
@@ -110,6 +129,7 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator(".new-metric strong").textContent()).resolves.toBe("0");
     await expect(page.locator(".existing-metric strong").textContent()).resolves.toBe(String(report.findings.length));
     await expect(page.locator(".history-status-badge.existing").count()).resolves.toBeGreaterThan(0);
+    await expect(page.locator(".finding-review-status.action-required").count()).resolves.toBeGreaterThan(0);
 
     await page.getByRole("button", { name: "Scan history" }).click();
     await page.locator("#history-list .history-row").first().waitFor();

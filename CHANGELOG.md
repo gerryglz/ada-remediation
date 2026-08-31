@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Version 0.2 product roadmap covering finding triage, repeatable profiles, authenticated dashboard scans, broader interaction coverage, and private-release stabilization.
+- Per-finding reviewer dispositions and notes for automated results, with review filters and totals, grouped bulk updates, compatible-rescan carry-forward, local persistence, and JSON/HTML export support.
 - Dashboard self-accessibility CI across primary application, dialog, error, responsive, and downloadable-report states.
 - Keyboard focus, activation, dialog-return, and horizontal-reflow browser assertions.
 - Opt-in disclosure-state scanning for visible native controls with valid `aria-expanded` and `aria-controls` relationships.

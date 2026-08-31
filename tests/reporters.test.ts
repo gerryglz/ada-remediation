@@ -66,6 +66,9 @@ describe("reporters", () => {
       manualTasks: {
         [result.manualChecks[0].id]: { status: "needs-attention", notes: "Focus became obscured behind the sticky header." },
       },
+      findings: {
+        [result.findings[0].fingerprint]: { disposition: "action-required", notes: "Update the shared navigation component." },
+      },
       notes: "Manual review is in progress.",
     };
     expect(terminalReport(result)).toContain("Conformance target: WCAG 2.2 Level AAA");
@@ -75,6 +78,7 @@ describe("reporters", () => {
     expect(terminalReport(result)).toContain("Component — Primary navigation: 2 findings");
     expect(terminalReport(result)).toContain("Disclosure states opened: 1");
     expect(terminalReport(result)).toContain("after opening Account actions");
+    expect(terminalReport(result)).toContain("Review: Action required — Update the shared navigation component.");
     const html = htmlReport(result);
     expect(html).toContain("Findings in context");
     expect(html).toContain("Conformance target:</strong> WCAG 2.2 Level AAA");
@@ -123,6 +127,11 @@ describe("reporters", () => {
     expect(html).toContain("Needs attention");
     expect(html).toContain("Focus became obscured behind the sticky header.");
     expect(html).toContain("Manual review is in progress.");
+    expect(html).toContain("Automated finding review");
+    expect(html).toContain("Action required");
+    expect(html).toContain("Update the shared navigation component.");
+    expect(html).toContain('data-disposition="action-required"');
+    expect(html).toContain('data-disposition-filter="false-positive"');
     expect(html).toContain("manual-progress");
     expect(html).toContain('<code class="inline-code">&lt;object&gt;</code> elements must have alternative text');
     expect(html).toContain('font-family:ui-monospace');
@@ -199,6 +208,13 @@ describe("reporters", () => {
     expect(html).not.toContain("el('span','wcag-level-badge','Level '+check.wcagLevel)");
     expect(html).toContain("Automated findings");
     expect(html).toContain("Manual review");
+    expect(html).toContain('id="finding-review-filters"');
+    expect(html).toContain("Automated finding review");
+    expect(html).toContain("Accepted risk");
+    expect(html).toContain("False positive");
+    expect(html).toContain("findingReviewPanel");
+    expect(html).toContain("findingReviews");
+    expect(html).toContain("activeDisposition");
     expect(html).toContain("renderManualChecks");
     expect(html).toContain("Color contrast evidence");
     expect(html).toContain("Manual pass");

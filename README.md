@@ -49,19 +49,22 @@ This is the easiest way to test a website when you have its URL.
    - **Rendered HTML context** shows the original browser markup around the affected element; **Suggested change** explains the correction direction without pretending generated code is a production-ready replacement
    - **How to verify the fix** provides a retesting checklist with W3C standards links first, followed by the affected source page and optional Deque/axe scanner details
    - Grouped findings use the affected element or recognizable component pattern as the collapsed-card title instead of repeating the scanner rule name. Each card shows its exact failed condition, recommended action, and page scope before it is opened. Expanding the card reveals clickable affected-page links and labels the CSS selector as technical location information rather than presenting it as the finding name
-11. For an identified text-contrast issue, review **Color contrast evidence** for the computed foreground and background colors, measured ratio, required ratio, and font information. The suggested CSS uses placeholders for approved design tokens; it does not invent production colors.
-12. Select **Manual review** and work through the target-aware human-review tasks. Each task includes detailed steps and direct W3C links. Record one outcome—**Not tested**, **Pass**, **Needs attention**, or **Not applicable**—plus task-specific evidence or follow-up notes. Use the status filters to focus the queue. Status changes save immediately; select **Save review** after changing task notes.
-13. Add run-level **Reviewer notes** for broader decisions, ownership, or follow-up work, then select **Save review**. Task outcomes and both kinds of notes are stored only with the local run.
-14. Use **Compare with** to select an earlier run for the same website. **New** findings were not present in that run, **Existing** findings remain, and **Resolved** findings were present previously but are absent now.
-15. Select **Scan history** in the application header to reopen or delete saved runs. Runs are grouped by website origin.
-16. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report. Both record the selected conformance target, automated findings, contrast evidence when available, and saved manual outcomes and notes.
-17. Press `Ctrl+C` in the terminal when you are finished. If that terminal is no longer available, run `npm run ui:stop` from the project directory. Both methods stop the tracked dashboard and release its port.
+11. In **Automated finding review**, record **Unreviewed**, **Action required**, **Accepted risk**, or **False positive**, plus reviewer notes. The third finding-list filter narrows the queue by this disposition. When a component or issue-pattern group is selected, the same controls can update every visible child at once. Status choices save immediately; select **Save review** after editing notes.
+12. For an identified text-contrast issue, review **Color contrast evidence** for the computed foreground and background colors, measured ratio, required ratio, and font information. The suggested CSS uses placeholders for approved design tokens; it does not invent production colors.
+13. Select **Manual review** and work through the target-aware human-review tasks. Each task includes detailed steps and direct W3C links. Record one outcome—**Not tested**, **Pass**, **Needs attention**, or **Not applicable**—plus task-specific evidence or follow-up notes. Use the status filters to focus the queue. Status changes save immediately; select **Save review** after changing task notes.
+14. Add run-level **Reviewer notes** for broader decisions, ownership, or follow-up work, then select **Save review**. Finding dispositions, task outcomes, and all reviewer notes are stored only with the local run.
+15. Use **Compare with** to select an earlier run for the same website. **New** findings were not present in that run, **Existing** findings remain, and **Resolved** findings were present previously but are absent now.
+16. Select **Scan history** in the application header to reopen or delete saved runs. Runs are grouped by website origin.
+17. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report. Both record the selected conformance target, automated findings, finding dispositions and notes, contrast evidence when available, and saved manual outcomes and notes.
+18. Press `Ctrl+C` in the terminal when you are finished. If that terminal is no longer available, run `npm run ui:stop` from the project directory. Both methods stop the tracked dashboard and release its port.
 
 The dashboard runs locally on your computer and binds to `127.0.0.1` by default. It does not upload reports or screenshots to an external service. Screenshots can contain visible page information, including information from authenticated pages, so review them before sharing.
 
 The results area is a full-height application workspace: the compact header and summary stay easy to scan while the finding queue and selected-finding details use the remaining browser space. Select an item from the **Finding list** to open its detailed review workspace. Plum identifies critical priority, orange identifies serious priority, cornflower blue supports standards and informational context, and green consistently identifies WCAG-level badges and filters. A visible divider separates every review section. Click the compact screenshot thumbnail to open an almost full-window view, then use **Close** or the Escape key to return. The report preserves the original rendered HTML as its primary code evidence and separates it from the suggested change. Treat that suggestion as review guidance, locate the maintained source that generated the browser HTML, and retest the page after editing it.
 
 The **Manual review** is deliberately separate from automated findings. **Not tested** is not a detected failure; it identifies work that still needs human judgment or interaction testing. **Pass** means the reviewer completed the listed procedure and found no issue in the tested scope. **Needs attention** records a manual problem or unresolved question. **Not applicable** should include a short reason in the task notes. Level A scans receive the essential checklist, Level AA adds common production checks such as reflow and status messages, and Level AAA adds enhanced review tasks.
+
+Automated finding dispositions are human review metadata, not scanner results. **Action required** records remediation work, **Accepted risk** documents a deliberate exception, and **False positive** documents why the rendered result does not represent a real barrier. These findings stay visible and remain in JSON and HTML exports. Only a later equivalent scan can classify an earlier finding as **Resolved**.
 
 ## Use local scan history and comparisons
 
@@ -70,7 +73,7 @@ Every successful dashboard scan is saved automatically on the same computer that
 - Windows: `%USERPROFILE%\.ada-remediation\history`
 - macOS and Linux: `~/.ada-remediation/history`
 
-Each run is one JSON file containing the complete scan result, embedded screenshot evidence, per-task manual outcomes and notes, and run-level reviewer notes. The dashboard does not create a cloud account or send these records to an external history service.
+Each run is one JSON file containing the complete scan result, embedded screenshot evidence, automated finding dispositions and notes, per-task manual outcomes and notes, and run-level reviewer notes. The dashboard does not create a cloud account or send these records to an external history service.
 
 Select **Scan history** to see runs grouped by website origin. Opening a saved run restores its findings, downloadable reports, manual outcomes, and notes. Select **Delete** to permanently remove that run's JSON record, screenshots, manual review, and notes from the computer. Older records that only stored a “complete” checkbox are reopened as **Not tested** with a migration note so the tool never silently converts completion into a compliance claim.
 
@@ -81,6 +84,8 @@ The newest run is compared with the most recent earlier run for that website by 
 - **Resolved**: present in the selected earlier run but absent from the open run
 
 Resolved means the automated finding was not reproduced in the newer scan. Confirm the affected behavior manually and make sure both runs tested equivalent pages, states, authentication, and WCAG targets before treating it as verified remediation.
+
+When the same stable finding appears in the next scan for the same website, WCAG target, and disclosure-state setting, its reviewer disposition and notes carry forward. New findings begin as **Unreviewed**. The complete 0.2 sequence is maintained in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 Code snippets, CSS selectors, scanner rule IDs, HTML-tag references such as `<object>`, and attribute/value pairs such as `role="menuitem"` use the report's monospace technical-chip treatment. The **Recommended fix** section places the failed condition in a distinct **Start here** callout; when axe reports required ARIA parent roles, their expected `role` values appear as separate chips. Manual conformance badges display only **A**, **AA**, or **AAA** so they match automated finding badges.
 

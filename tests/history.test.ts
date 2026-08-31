@@ -61,10 +61,15 @@ describe("local scan history", () => {
         "keyboard-focus": { status: "pass", notes: " Tested with NVDA. " },
         unknown: { status: "needs-attention", notes: "Must be discarded." },
       },
+      findings: {
+        one: { disposition: "action-required", notes: " Fix the shared button component. " },
+        unknown: { disposition: "false-positive", notes: "Must be discarded." },
+      },
       notes: " Reviewed with keyboard. ",
     }, directory);
     expect(updated.review).toEqual({
       manualTasks: { "keyboard-focus": { status: "pass", notes: "Tested with NVDA." } },
+      findings: { one: { disposition: "action-required", notes: "Fix the shared button component." } },
       notes: "Reviewed with keyboard.",
     });
     expect((await getScanRun(saved.id, directory))?.review.notes).toBe("Reviewed with keyboard.");
@@ -89,7 +94,23 @@ describe("local scan history", () => {
           notes: "Previously marked complete. Classify this review as Pass, Needs attention, or Not applicable.",
         },
       },
+      findings: {},
       notes: "Legacy review",
+    });
+  });
+
+  it("carries finding reviews to stable findings in a compatible rescan", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "ada-history-finding-review-"));
+    directories.push(directory);
+    const base = await saveScanRun(result("2026-08-29T12:00:00.000Z", [finding("stable", ".same")]), directory);
+    await updateRunReview(base.id, {
+      findings: { stable: { disposition: "accepted-risk", notes: "Approved exception until the shared widget is replaced." } },
+    }, directory);
+    const changedRepresentative = { ...finding("new-representative", ".same"), occurrences: [{ fingerprint: "stable", location: { url: "https://example.com/", selector: ".same" } }] };
+    const current = await saveScanRun(result("2026-08-30T12:00:00.000Z", [changedRepresentative, finding("brand-new", ".new")]), directory);
+
+    expect(current.review.findings).toEqual({
+      "new-representative": { disposition: "accepted-risk", notes: "Approved exception until the shared widget is replaced." },
     });
   });
 
