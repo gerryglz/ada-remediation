@@ -50,18 +50,18 @@ This is the easiest way to test a website when you have its URL.
    - **How to verify the fix** provides a retesting checklist with W3C standards links first, followed by the affected source page and optional Deque/axe scanner details
    - Grouped findings use the affected element or recognizable component pattern as the collapsed-card title instead of repeating the scanner rule name. Each card shows its exact failed condition, recommended action, and page scope before it is opened. Expanding the card reveals clickable affected-page links and labels the CSS selector as technical location information rather than presenting it as the finding name
 11. For an identified text-contrast issue, review **Color contrast evidence** for the computed foreground and background colors, measured ratio, required ratio, and font information. The suggested CSS uses placeholders for approved design tokens; it does not invent production colors.
-12. Select **Manual checklist** and complete the target-aware human-review tasks. Each task includes detailed test steps and direct W3C links. Completion is saved with this local scan run so it returns when you reopen the run. The downloaded HTML report includes a printable, interactive copy of the checklist.
-13. Add **Reviewer notes** for testing performed, decisions, ownership, or follow-up work, then select **Save review**. Notes are stored only with the local run.
+12. Select **Manual review** and work through the target-aware human-review tasks. Each task includes detailed steps and direct W3C links. Record one outcome—**Not tested**, **Pass**, **Needs attention**, or **Not applicable**—plus task-specific evidence or follow-up notes. Use the status filters to focus the queue. Status changes save immediately; select **Save review** after changing task notes.
+13. Add run-level **Reviewer notes** for broader decisions, ownership, or follow-up work, then select **Save review**. Task outcomes and both kinds of notes are stored only with the local run.
 14. Use **Compare with** to select an earlier run for the same website. **New** findings were not present in that run, **Existing** findings remain, and **Resolved** findings were present previously but are absent now.
 15. Select **Scan history** in the application header to reopen or delete saved runs. Runs are grouped by website origin.
-16. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report. Both record the selected conformance target, automated findings, contrast evidence when available, and manual-review tasks.
+16. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report. Both record the selected conformance target, automated findings, contrast evidence when available, and saved manual outcomes and notes.
 17. Press `Ctrl+C` in the terminal when you are finished to stop the dashboard.
 
 The dashboard runs locally on your computer and binds to `127.0.0.1` by default. It does not upload reports or screenshots to an external service. Screenshots can contain visible page information, including information from authenticated pages, so review them before sharing.
 
 The results area is a full-height application workspace: the compact header and summary stay easy to scan while the finding queue and selected-finding details use the remaining browser space. Select an item from the **Finding list** to open its detailed review workspace. Plum identifies critical priority, orange identifies serious priority, cornflower blue supports standards and informational context, and green consistently identifies WCAG-level badges and filters. A visible divider separates every review section. Click the compact screenshot thumbnail to open an almost full-window view, then use **Close** or the Escape key to return. The report preserves the original rendered HTML as its primary code evidence and separates it from the suggested change. Treat that suggestion as review guidance, locate the maintained source that generated the browser HTML, and retest the page after editing it.
 
-The **Manual checklist** is deliberately separate from automated findings. A TODO is not a detected failure; it identifies an accessibility requirement that needs human judgment or interaction testing. Level A scans receive the essential checklist, Level AA adds common production checks such as reflow and status messages, and Level AAA adds enhanced review tasks.
+The **Manual review** is deliberately separate from automated findings. **Not tested** is not a detected failure; it identifies work that still needs human judgment or interaction testing. **Pass** means the reviewer completed the listed procedure and found no issue in the tested scope. **Needs attention** records a manual problem or unresolved question. **Not applicable** should include a short reason in the task notes. Level A scans receive the essential checklist, Level AA adds common production checks such as reflow and status messages, and Level AAA adds enhanced review tasks.
 
 ## Use local scan history and comparisons
 
@@ -70,9 +70,9 @@ Every successful dashboard scan is saved automatically on the same computer that
 - Windows: `%USERPROFILE%\.ada-remediation\history`
 - macOS and Linux: `~/.ada-remediation/history`
 
-Each run is one JSON file containing the complete scan result, embedded screenshot evidence, completed manual-task IDs, and reviewer notes. The dashboard does not create a cloud account or send these records to an external history service.
+Each run is one JSON file containing the complete scan result, embedded screenshot evidence, per-task manual outcomes and notes, and run-level reviewer notes. The dashboard does not create a cloud account or send these records to an external history service.
 
-Select **Scan history** to see runs grouped by website origin. Opening a saved run restores its findings, downloadable reports, manual progress, and notes. Select **Delete** to permanently remove that run's JSON record, screenshots, manual progress, and notes from the computer.
+Select **Scan history** to see runs grouped by website origin. Opening a saved run restores its findings, downloadable reports, manual outcomes, and notes. Select **Delete** to permanently remove that run's JSON record, screenshots, manual review, and notes from the computer. Older records that only stored a “complete” checkbox are reopened as **Not tested** with a migration note so the tool never silently converts completion into a compliance claim.
 
 The newest run is compared with the most recent earlier run for that website by default. Use **Compare with** to choose another earlier run. Comparison uses stable finding and occurrence fingerprints rather than titles or sidebar positions, which allows recurring component findings to remain identifiable across crawls:
 

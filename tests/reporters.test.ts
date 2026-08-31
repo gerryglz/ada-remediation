@@ -62,6 +62,12 @@ describe("reporters", () => {
       },
     ];
     result.metadata.findingOccurrences = result.findings.length + 1;
+    result.review = {
+      manualTasks: {
+        [result.manualChecks[0].id]: { status: "needs-attention", notes: "Focus became obscured behind the sticky header." },
+      },
+      notes: "Manual review is in progress.",
+    };
     expect(terminalReport(result)).toContain("Conformance target: WCAG 2.2 Level AAA");
     expect(terminalReport(result)).toContain("Automated results cannot certify");
     expect(terminalReport(result)).toContain("Recurring Navigation menu: 2 pages / 2 occurrences");
@@ -111,9 +117,12 @@ describe("reporters", () => {
     expect(html).toContain("Color contrast evidence");
     expect(html).toContain("Measured ratio");
     expect(html).toContain("4.48:1");
-    expect(html).toContain("Manual accessibility checklist");
+    expect(html).toContain("Manual accessibility review record");
     expect(html).toContain("Required human review");
-    expect(html).toContain("data-manual-check");
+    expect(html).toContain("Not tested");
+    expect(html).toContain("Needs attention");
+    expect(html).toContain("Focus became obscured behind the sticky header.");
+    expect(html).toContain("Manual review is in progress.");
     expect(html).toContain("manual-progress");
     expect(html).toContain('<code class="inline-code">&lt;object&gt;</code> elements must have alternative text');
     expect(html).toContain('font-family:ui-monospace');
@@ -189,10 +198,11 @@ describe("reporters", () => {
     expect(html).toContain("el('span','wcag-level-badge',check.wcagLevel)");
     expect(html).not.toContain("el('span','wcag-level-badge','Level '+check.wcagLevel)");
     expect(html).toContain("Automated findings");
-    expect(html).toContain("Manual checklist");
+    expect(html).toContain("Manual review");
     expect(html).toContain("renderManualChecks");
     expect(html).toContain("Color contrast evidence");
-    expect(html).toContain("Manual tasks");
+    expect(html).toContain("Manual pass");
+    expect(html).toContain("Manual attention");
     expect(html).toContain("Unique findings");
     expect(html).toContain("Occurrences");
     expect(html).toContain("component-badge");

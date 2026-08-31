@@ -2,14 +2,11 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Finding, ScanResult } from "./types.js";
+import type { Finding, ManualReviewStatus, ManualTaskReview, ScanResult, ScanReview } from "./types.js";
 
 export type FindingHistoryStatus = "new" | "existing";
 
-export interface RunReview {
-  completedManualIds: string[];
-  notes: string;
-}
+export type RunReview = ScanReview;
 
 export interface SavedScanRun {
   schemaVersion: "1.0";
@@ -73,8 +70,38 @@ function isSavedScanRun(value: unknown): value is SavedScanRun {
     && typeof candidate.savedAt === "string"
     && Boolean(candidate.result?.metadata)
     && Array.isArray(candidate.result?.findings)
-    && Array.isArray(candidate.review?.completedManualIds)
-    && typeof candidate.review?.notes === "string";
+    && typeof candidate.review?.notes === "string"
+    && (Boolean(candidate.review?.manualTasks && typeof candidate.review.manualTasks === "object")
+      || Array.isArray((candidate.review as RunReview & { completedManualIds?: string[] })?.completedManualIds));
+}
+
+const manualReviewStatuses = new Set<ManualReviewStatus>(["not-tested", "pass", "needs-attention", "not-applicable"]);
+
+function sanitizeManualReview(value: unknown): ManualTaskReview | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const candidate = value as Partial<ManualTaskReview>;
+  if (!candidate.status || !manualReviewStatuses.has(candidate.status)) return undefined;
+  return { status: candidate.status, notes: typeof candidate.notes === "string" ? candidate.notes.trim().slice(0, 4_000) : "" };
+}
+
+function normalizeRun(run: SavedScanRun): SavedScanRun {
+  const rawReview = run.review as RunReview & { completedManualIds?: string[] };
+  const allowedManualIds = new Set(run.result.manualChecks.map((check) => check.id));
+  const manualTasks: Record<string, ManualTaskReview> = {};
+  if (rawReview.manualTasks && typeof rawReview.manualTasks === "object") {
+    for (const [manualId, value] of Object.entries(rawReview.manualTasks)) {
+      const sanitized = sanitizeManualReview(value);
+      if (allowedManualIds.has(manualId) && sanitized) manualTasks[manualId] = sanitized;
+    }
+  } else {
+    for (const manualId of rawReview.completedManualIds ?? []) {
+      if (allowedManualIds.has(manualId)) manualTasks[manualId] = {
+        status: "not-tested",
+        notes: "Previously marked complete. Classify this review as Pass, Needs attention, or Not applicable.",
+      };
+    }
+  }
+  return { ...run, review: { manualTasks, notes: rawReview.notes.trim().slice(0, 10_000) } };
 }
 
 function summary(run: SavedScanRun): ScanRunSummary {
@@ -88,7 +115,7 @@ function summary(run: SavedScanRun): ScanRunSummary {
     findings: run.result.findings.length,
     occurrences: run.result.metadata.findingOccurrences ?? run.result.findings.reduce((total, finding) => total + (finding.occurrences?.length || 1), 0),
     interactionStatesRequested: Boolean(run.result.metadata.interactionStatesRequested),
-    manualCompleted: run.review.completedManualIds.length,
+    manualCompleted: Object.values(run.review.manualTasks).filter((review) => review.status !== "not-tested").length,
     manualTotal: run.result.manualChecks.length,
   };
 }
@@ -108,7 +135,7 @@ export async function saveScanRun(result: ScanResult, directory = defaultHistory
     targetKey: websiteKey(result.metadata.target),
     savedAt: new Date().toISOString(),
     result,
-    review: { completedManualIds: [], notes: "" },
+    review: { manualTasks: {}, notes: "" },
   };
   await writeRun(directory, run);
   return run;
@@ -117,7 +144,7 @@ export async function saveScanRun(result: ScanResult, directory = defaultHistory
 export async function getScanRun(id: string, directory = defaultHistoryDirectory()): Promise<SavedScanRun | undefined> {
   try {
     const parsed = JSON.parse(await readFile(runPath(directory, id), "utf8")) as unknown;
-    return isSavedScanRun(parsed) ? parsed : undefined;
+    return isSavedScanRun(parsed) ? normalizeRun(parsed) : undefined;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
@@ -136,7 +163,7 @@ export async function listScanRuns(target?: string, directory = defaultHistoryDi
   const runs = await Promise.all(names.filter((name) => /^[a-f0-9-]{36}\.json$/i.test(name)).map(async (name) => {
     try {
       const parsed = JSON.parse(await readFile(join(directory, name), "utf8")) as unknown;
-      return isSavedScanRun(parsed) ? parsed : undefined;
+      return isSavedScanRun(parsed) ? normalizeRun(parsed) : undefined;
     } catch {
       return undefined;
     }
@@ -151,13 +178,17 @@ export async function updateRunReview(id: string, review: Partial<RunReview>, di
   const run = await getScanRun(id, directory);
   if (!run) throw new Error("Scan run not found.");
   const allowedManualIds = new Set(run.result.manualChecks.map((check) => check.id));
-  const completedManualIds = review.completedManualIds
-    ? [...new Set(review.completedManualIds.filter((manualId) => allowedManualIds.has(manualId)))].sort()
-    : run.review.completedManualIds;
+  const manualTasks = review.manualTasks === undefined ? run.review.manualTasks : Object.fromEntries(Object.entries(review.manualTasks)
+    .filter(([manualId, value]) => allowedManualIds.has(manualId) && Boolean(sanitizeManualReview(value)))
+    .map(([manualId, value]) => [manualId, sanitizeManualReview(value)!]));
   const notes = review.notes === undefined ? run.review.notes : review.notes.trim().slice(0, 10_000);
-  const updated = { ...run, review: { completedManualIds, notes } };
+  const updated = { ...run, review: { manualTasks, notes } };
   await writeRun(directory, updated);
   return updated;
+}
+
+export function reviewedScanResult(run: SavedScanRun): ScanResult {
+  return { ...run.result, review: run.review };
 }
 
 export async function deleteScanRun(id: string, directory = defaultHistoryDirectory()): Promise<boolean> {

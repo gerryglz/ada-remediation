@@ -142,11 +142,11 @@ describe("dashboard self-accessibility gate", () => {
     await page.keyboard.press("Enter");
     await expect(criticalFilter.getAttribute("aria-pressed")).resolves.toBe("true");
 
-    const manualTab = page.getByRole("button", { name: "Manual checklist" });
+    const manualTab = page.getByRole("button", { name: "Manual review" });
     await manualTab.focus();
     await page.keyboard.press("Enter");
     await expect(manualTab.getAttribute("aria-pressed")).resolves.toBe("true");
-    await assertDashboardAccessibility(page, "manual checklist");
+    await assertDashboardAccessibility(page, "manual review");
 
     await historyButton.click();
     await page.locator("#history-list .history-row").first().waitFor();

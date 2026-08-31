@@ -105,6 +105,18 @@ export interface ManualCheck {
   status: "todo";
 }
 
+export type ManualReviewStatus = "not-tested" | "pass" | "needs-attention" | "not-applicable";
+
+export interface ManualTaskReview {
+  status: ManualReviewStatus;
+  notes: string;
+}
+
+export interface ScanReview {
+  manualTasks: Record<string, ManualTaskReview>;
+  notes: string;
+}
+
 export type FixKind =
   | "remove-empty-aria-labelledby"
   | "remove-empty-aria-describedby"
@@ -179,6 +191,7 @@ export interface ScanResult {
   findings: Finding[];
   findingGroups?: FindingGroup[];
   manualChecks: ManualCheck[];
+  review?: ScanReview;
   notice: string;
 }
 
