@@ -112,8 +112,16 @@ export interface ManualTaskReview {
   notes: string;
 }
 
+export type FindingReviewDisposition = "unreviewed" | "action-required" | "accepted-risk" | "false-positive";
+
+export interface FindingReview {
+  disposition: FindingReviewDisposition;
+  notes: string;
+}
+
 export interface ScanReview {
   manualTasks: Record<string, ManualTaskReview>;
+  findings: Record<string, FindingReview>;
   notes: string;
 }
 
