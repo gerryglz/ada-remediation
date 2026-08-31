@@ -190,7 +190,17 @@ export interface ScanMetadata {
   interactionStatesScanned?: number;
   interactionStatesRequested?: boolean;
   wcagLevel?: WcagLevel;
+  profile?: ScanProfile;
   incomplete?: Array<{ url: string; reason: string; stage?: "navigation" | "audit"; attempts?: number }>;
+}
+
+export interface ScanProfile {
+  target: string;
+  wcagLevel: WcagLevel;
+  crawl: boolean;
+  maxPages: number;
+  captureScreenshots: boolean;
+  interactionStates: boolean;
 }
 
 export interface ScanResult {

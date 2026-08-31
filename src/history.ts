@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Finding, FindingReview, FindingReviewDisposition, ManualReviewStatus, ManualTaskReview, ScanResult, ScanReview } from "./types.js";
+import type { Finding, FindingReview, FindingReviewDisposition, ManualReviewStatus, ManualTaskReview, ScanMetadata, ScanProfile, ScanResult, ScanReview } from "./types.js";
 
 export type FindingHistoryStatus = "new" | "existing";
 
@@ -27,6 +27,7 @@ export interface ScanRunSummary {
   findings: number;
   occurrences: number;
   interactionStatesRequested: boolean;
+  profile?: ScanProfile;
   manualCompleted: number;
   manualTotal: number;
 }
@@ -140,9 +141,26 @@ function summary(run: SavedScanRun): ScanRunSummary {
     findings: run.result.findings.length,
     occurrences: run.result.metadata.findingOccurrences ?? run.result.findings.reduce((total, finding) => total + (finding.occurrences?.length || 1), 0),
     interactionStatesRequested: Boolean(run.result.metadata.interactionStatesRequested),
+    profile: run.result.metadata.profile,
     manualCompleted: Object.values(run.review.manualTasks).filter((review) => review.status !== "not-tested").length,
     manualTotal: run.result.manualChecks.length,
   };
+}
+
+export function scanProfilesCompatible(current: ScanMetadata, base: ScanMetadata): boolean {
+  if (current.profile || base.profile) {
+    if (!current.profile || !base.profile) return false;
+    return current.profile.target === base.profile.target
+      && current.profile.wcagLevel === base.profile.wcagLevel
+      && current.profile.crawl === base.profile.crawl
+      && current.profile.maxPages === base.profile.maxPages
+      && current.profile.captureScreenshots === base.profile.captureScreenshots
+      && current.profile.interactionStates === base.profile.interactionStates;
+  }
+  return current.target === base.target
+    && current.scanner === base.scanner
+    && current.wcagLevel === base.wcagLevel
+    && Boolean(current.interactionStatesRequested) === Boolean(base.interactionStatesRequested);
 }
 
 async function writeRun(directory: string, run: SavedScanRun): Promise<void> {
@@ -155,10 +173,14 @@ async function writeRun(directory: string, run: SavedScanRun): Promise<void> {
 
 export async function saveScanRun(result: ScanResult, directory = defaultHistoryDirectory()): Promise<SavedScanRun> {
   const previousRuns = await listScanRuns(result.metadata.target, directory);
-  const previousSummary = previousRuns.find((candidate) => candidate.completedAt < result.metadata.completedAt
-    && candidate.wcagLevel === result.metadata.wcagLevel
-    && candidate.interactionStatesRequested === Boolean(result.metadata.interactionStatesRequested));
-  const previous = previousSummary ? await getScanRun(previousSummary.id, directory) : undefined;
+  let previous: SavedScanRun | undefined;
+  for (const candidate of previousRuns.filter((run) => run.completedAt < result.metadata.completedAt)) {
+    const possible = await getScanRun(candidate.id, directory);
+    if (possible && scanProfilesCompatible(result.metadata, possible.result.metadata)) {
+      previous = possible;
+      break;
+    }
+  }
   const findings: Record<string, FindingReview> = {};
   if (previous) {
     for (const finding of result.findings) {
@@ -276,15 +298,18 @@ export function compareScanRuns(current: SavedScanRun, base?: SavedScanRun): Sca
 export async function comparisonForRun(current: SavedScanRun, baseId: string | undefined, directory = defaultHistoryDirectory()): Promise<ScanComparison> {
   let base = baseId ? await getScanRun(baseId, directory) : undefined;
   if (base && base.targetKey !== current.targetKey) throw new Error("Comparison runs must belong to the same website.");
-  if (base && Boolean(base.result.metadata.interactionStatesRequested) !== Boolean(current.result.metadata.interactionStatesRequested)) {
-    throw new Error("Comparison runs must use the same disclosure-state scan setting.");
+  if (base && !scanProfilesCompatible(current.result.metadata, base.result.metadata)) {
+    throw new Error("Comparison runs must use the same saved scan profile.");
   }
   if (!base && !baseId) {
     const summaries = await listScanRuns(current.result.metadata.target, directory);
-    const previous = summaries.find((candidate) => candidate.id !== current.id
-      && candidate.completedAt < current.result.metadata.completedAt
-      && candidate.interactionStatesRequested === Boolean(current.result.metadata.interactionStatesRequested));
-    base = previous ? await getScanRun(previous.id, directory) : undefined;
+    for (const candidate of summaries.filter((run) => run.id !== current.id && run.completedAt < current.result.metadata.completedAt)) {
+      const possible = await getScanRun(candidate.id, directory);
+      if (possible && scanProfilesCompatible(current.result.metadata, possible.result.metadata)) {
+        base = possible;
+        break;
+      }
+    }
   }
   return compareScanRuns(current, base);
 }

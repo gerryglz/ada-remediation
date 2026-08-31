@@ -75,6 +75,14 @@ describe("dashboard reviewer workflow", () => {
     expect(jsonResponse.ok()).toBe(true);
     const report = await jsonResponse.json();
     expect(report.metadata.pagesOrFilesScanned).toBe(1);
+    expect(report.metadata.profile).toEqual({
+      target: fixture.url,
+      wcagLevel: "AA",
+      crawl: false,
+      maxPages: 1,
+      captureScreenshots: false,
+      interactionStates: false,
+    });
     expect(report.findings.length).toBeGreaterThan(0);
     expect(report.findings[0].renderedHtmlContext.html).toContain("\n");
     await expect(page.locator(".new-metric strong").textContent()).resolves.toBe(String(report.findings.length));
@@ -123,8 +131,10 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#finding-list .manual-nav").count()).resolves.toBe(0);
     await page.locator("#manual-status-filters").getByRole("button", { name: "All", exact: true }).click();
 
-    await page.getByRole("button", { name: "Show scan controls" }).click();
-    await page.getByRole("button", { name: "Scan page" }).click();
+    await page.getByRole("button", { name: "Scan history" }).click();
+    await page.locator("#history-list .history-row").first().waitFor();
+    await expect(page.locator("#history-list .history-row").first().textContent()).resolves.toContain("WCAG AA · Single page · screenshots off · disclosure states off");
+    await page.locator("#history-list .history-row").first().getByRole("button", { name: /Run this saved profile again/ }).click();
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
     await expect(page.locator(".new-metric strong").textContent()).resolves.toBe("0");
     await expect(page.locator(".existing-metric strong").textContent()).resolves.toBe(String(report.findings.length));
