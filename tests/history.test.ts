@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { compareScanRuns, comparisonForRun, deleteScanRun, getScanRun, listScanRuns, saveScanRun, updateRunReview, websiteKey } from "../src/history.js";
+import { compareScanRuns, comparisonForRun, deleteScanRun, getScanRun, listScanRuns, saveScanRun, scanProfilesCompatible, updateRunReview, websiteKey } from "../src/history.js";
 import type { Finding, ScanResult } from "../src/types.js";
 
 const directories: string[] = [];
@@ -141,6 +141,25 @@ describe("local scan history", () => {
     const current = await saveScanRun(currentResult, directory);
 
     expect((await comparisonForRun(current, undefined, directory)).baseRunId).toBe(interactionBase.id);
-    await expect(comparisonForRun(current, initialOnly.id, directory)).rejects.toThrow("same disclosure-state scan setting");
+    await expect(comparisonForRun(current, initialOnly.id, directory)).rejects.toThrow("same saved scan profile");
+  });
+
+  it("compares profile-backed runs only when every saved scan setting matches", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "ada-history-profiles-"));
+    directories.push(directory);
+    const base = result("2026-08-29T12:00:00.000Z", [finding("same", ".same")]);
+    base.metadata.profile = { target: base.metadata.target, wcagLevel: "AA", crawl: true, maxPages: 10, captureScreenshots: true, interactionStates: false };
+    const current = result("2026-08-30T12:00:00.000Z", [finding("same", ".same")]);
+    current.metadata.profile = { ...base.metadata.profile };
+
+    expect(scanProfilesCompatible(current.metadata, base.metadata)).toBe(true);
+    const savedBase = await saveScanRun(base, directory);
+    current.metadata.profile.maxPages = 25;
+    expect(scanProfilesCompatible(current.metadata, base.metadata)).toBe(false);
+    const savedCurrent = await saveScanRun(current, directory);
+    expect((await comparisonForRun(savedCurrent, undefined, directory)).baseRunId).toBeUndefined();
+    await expect(comparisonForRun(savedCurrent, savedBase.id, directory)).rejects.toThrow("same saved scan profile");
+    current.metadata.profile = undefined;
+    expect(scanProfilesCompatible(current.metadata, base.metadata)).toBe(false);
   });
 });

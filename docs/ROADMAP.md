@@ -4,7 +4,7 @@
 
 Version 0.2 turns scan output into a repeatable accessibility review workflow. Automated findings remain evidence to investigate rather than a claim of ADA, WCAG, or Section 508 compliance.
 
-### 1. Automated finding review records
+### 1. Automated finding review records — completed
 
 - Record a human disposition for each finding: Unreviewed, Action required, Accepted risk, or False positive.
 - Store reviewer notes with the finding and carry them forward when the same stable finding appears in a compatible rescan.
@@ -13,11 +13,11 @@ Version 0.2 turns scan output into a repeatable accessibility review workflow. A
 - Include finding review records in saved history, JSON downloads, and HTML reports.
 - Keep scanner history separate: New, Existing, and Resolved are computed from scans; a reviewer cannot manually mark a finding Resolved.
 
-### 2. Repeatable scan profiles
+### 2. Repeatable scan profiles — completed
 
-- Save the target, WCAG level, crawl limit, screenshots, and interaction-state settings.
-- Rerun a saved profile from scan history.
-- Compare only runs created with compatible scan settings.
+- Save the target, WCAG level, crawl limit, screenshots, and interaction-state settings with every rendered scan.
+- Rerun a saved profile directly from scan history.
+- Compare and carry reviewer records forward only between runs created with the same complete profile.
 
 ### 3. Authenticated website scanning
 
