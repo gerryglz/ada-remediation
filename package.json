@@ -23,6 +23,7 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/cli.ts",
     "ui": "npm run build && node dist/cli.js ui",
+    "ui:stop": "npm run build && node dist/cli.js ui stop",
     "test": "vitest run",
     "test:a11y": "vitest run --config vitest.e2e.config.ts tests/e2e/dashboard-accessibility.test.ts",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
