@@ -56,12 +56,41 @@ describe("local scan history", () => {
     expect(websiteKey(saved.result.metadata.target)).toBe("https://example.com");
     expect((await listScanRuns("https://example.com/another", directory))[0].id).toBe(saved.id);
 
-    const updated = await updateRunReview(saved.id, { completedManualIds: ["keyboard-focus", "unknown"], notes: " Reviewed with keyboard. " }, directory);
-    expect(updated.review).toEqual({ completedManualIds: ["keyboard-focus"], notes: "Reviewed with keyboard." });
+    const updated = await updateRunReview(saved.id, {
+      manualTasks: {
+        "keyboard-focus": { status: "pass", notes: " Tested with NVDA. " },
+        unknown: { status: "needs-attention", notes: "Must be discarded." },
+      },
+      notes: " Reviewed with keyboard. ",
+    }, directory);
+    expect(updated.review).toEqual({
+      manualTasks: { "keyboard-focus": { status: "pass", notes: "Tested with NVDA." } },
+      notes: "Reviewed with keyboard.",
+    });
     expect((await getScanRun(saved.id, directory))?.review.notes).toBe("Reviewed with keyboard.");
 
     expect(await deleteScanRun(saved.id, directory)).toBe(true);
     expect(await deleteScanRun(saved.id, directory)).toBe(false);
+  });
+
+  it("loads legacy completed checkboxes without claiming they passed", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "ada-history-legacy-"));
+    directories.push(directory);
+    const saved = await saveScanRun(result("2026-08-30T12:00:00.000Z", []), directory);
+    await writeFile(join(directory, `${saved.id}.json`), JSON.stringify({
+      ...saved,
+      review: { completedManualIds: ["keyboard-focus"], notes: "Legacy review" },
+    }), "utf8");
+
+    expect((await getScanRun(saved.id, directory))?.review).toEqual({
+      manualTasks: {
+        "keyboard-focus": {
+          status: "not-tested",
+          notes: "Previously marked complete. Classify this review as Pass, Needs attention, or Not applicable.",
+        },
+      },
+      notes: "Legacy review",
+    });
   });
 
   it("ignores corrupt history files and compares new, existing, and resolved findings", async () => {

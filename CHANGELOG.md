@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Keyboard focus, activation, dialog-return, and horizontal-reflow browser assertions.
 - Opt-in disclosure-state scanning for visible native controls with valid `aria-expanded` and `aria-controls` relationships.
 - Reproduction context for findings exposed only after a disclosure is opened, including the state name and trigger selector in dashboard, terminal, JSON, HTML, and AI-remediation output.
+- Per-task manual review records with Pass, Needs attention, Not applicable, and Not tested outcomes; evidence notes; status filters and totals; local persistence; and JSON/HTML export support.
 
 ### Fixed
 

@@ -79,14 +79,30 @@ describe("dashboard reviewer workflow", () => {
     expect(report.findings[0].renderedHtmlContext.html).toContain("\n");
     await expect(page.locator(".new-metric strong").textContent()).resolves.toBe(String(report.findings.length));
 
-    await page.getByRole("button", { name: "Manual checklist" }).click();
-    await expect(page.locator("#queue-heading").textContent()).resolves.toBe("Manual checklist");
+    await page.getByRole("button", { name: "Manual review" }).click();
+    await expect(page.locator("#queue-heading").textContent()).resolves.toBe("Manual review");
     await expect(page.locator("#finding-list .manual-nav").count()).resolves.toBeGreaterThan(0);
-    await page.locator("#finding-list .manual-nav input").first().check();
+    await page.locator("#finding-detail").getByRole("button", { name: "Pass", exact: true }).click();
     await page.locator("#save-state").getByText("Saved locally").waitFor();
+    await page.locator("#finding-detail textarea").fill("Keyboard access and focus order verified with NVDA.");
     await page.locator("#run-notes").fill("Keyboard review assigned to the accessibility team.");
     await page.getByRole("button", { name: "Save review" }).click();
     await page.locator("#save-state").getByText("Saved locally").waitFor();
+    const reviewedJsonHref = await page.locator("#json-download").getAttribute("href");
+    const reviewedJson = await (await page.request.get(`${dashboard.url}${reviewedJsonHref}`)).json();
+    expect(reviewedJson.review.notes).toBe("Keyboard review assigned to the accessibility team.");
+    expect(reviewedJson.review.manualTasks[reviewedJson.manualChecks[0].id]).toEqual({
+      status: "pass",
+      notes: "Keyboard access and focus order verified with NVDA.",
+    });
+    const reviewedHtmlHref = await page.locator("#html-download").getAttribute("href");
+    const reviewedHtml = await (await page.request.get(`${dashboard.url}${reviewedHtmlHref}`)).text();
+    expect(reviewedHtml).toContain("Manual accessibility review record");
+    expect(reviewedHtml).toContain("Keyboard access and focus order verified with NVDA.");
+
+    await page.locator("#manual-status-filters").getByRole("button", { name: "Needs attention" }).click();
+    await expect(page.locator("#finding-list .manual-nav").count()).resolves.toBe(0);
+    await page.locator("#manual-status-filters").getByRole("button", { name: "All", exact: true }).click();
 
     await page.getByRole("button", { name: "Show scan controls" }).click();
     await page.getByRole("button", { name: "Scan page" }).click();
@@ -103,8 +119,9 @@ describe("dashboard reviewer workflow", () => {
     await page.waitForFunction(() => document.querySelectorAll("#history-list .history-row").length === 1);
     await expect(page.locator("#history-list .history-row").count()).resolves.toBe(1);
     await page.locator("#history-list .history-row").first().getByRole("button", { name: /Open scan/ }).click();
-    await page.getByRole("button", { name: "Manual checklist" }).click();
-    await expect(page.locator("#finding-list .manual-nav input").first().isChecked()).resolves.toBe(true);
+    await page.getByRole("button", { name: "Manual review" }).click();
+    await expect(page.locator("#finding-detail .manual-status").first().textContent()).resolves.toBe("Pass");
+    await expect(page.locator("#finding-detail textarea").inputValue()).resolves.toBe("Keyboard access and focus order verified with NVDA.");
     await expect(page.locator("#run-notes").inputValue()).resolves.toBe("Keyboard review assigned to the accessibility team.");
     expect(consoleErrors).toEqual([]);
   });
