@@ -19,6 +19,18 @@
     <div id="account-actions" hidden>
       <button type="button"><span aria-hidden="true">×</span></button>
     </div>
+    <div role="tablist" aria-label="Account information">
+      <button id="overview-tab" type="button" role="tab" aria-selected="true" aria-controls="overview-panel">Overview</button>
+      <button id="details-tab" type="button" role="tab" aria-selected="false" aria-controls="details-panel">Details</button>
+    </div>
+    <section id="overview-panel" role="tabpanel" aria-labelledby="overview-tab">Overview content</section>
+    <section id="details-panel" role="tabpanel" aria-labelledby="details-tab" hidden>
+      <button type="button"><span aria-hidden="true">×</span></button>
+    </section>
+    <button id="help-dialog-trigger" type="button" aria-haspopup="dialog" aria-controls="help-dialog">Open help</button>
+    <dialog id="help-dialog" aria-label="Help dialog">
+      <button type="button"><span aria-hidden="true">×</span></button>
+    </dialog>
   </main>
   <script>
     const disclosure = document.getElementById("account-disclosure");
@@ -28,6 +40,24 @@
       disclosure.setAttribute("aria-expanded", String(!expanded));
       actions.hidden = expanded;
     });
+    const overviewTab = document.getElementById("overview-tab");
+    const detailsTab = document.getElementById("details-tab");
+    const overviewPanel = document.getElementById("overview-panel");
+    const detailsPanel = document.getElementById("details-panel");
+    detailsTab.addEventListener("click", () => {
+      overviewTab.setAttribute("aria-selected", "false");
+      detailsTab.setAttribute("aria-selected", "true");
+      overviewPanel.hidden = true;
+      detailsPanel.hidden = false;
+    });
+    overviewTab.addEventListener("click", () => {
+      overviewTab.setAttribute("aria-selected", "true");
+      detailsTab.setAttribute("aria-selected", "false");
+      overviewPanel.hidden = false;
+      detailsPanel.hidden = true;
+    });
+    const helpDialog = document.getElementById("help-dialog");
+    document.getElementById("help-dialog-trigger").addEventListener("click", () => helpDialog.showModal());
   </script>
 </body>
 </html>

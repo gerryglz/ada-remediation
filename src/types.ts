@@ -2,6 +2,15 @@ export type Severity = "critical" | "serious" | "moderate" | "minor";
 export type Confidence = "high" | "medium" | "low";
 export type FindingKind = "automatic" | "manual-review";
 export type WcagLevel = "A" | "AA" | "AAA";
+export type InteractionStateType = "disclosure" | "tab" | "dialog";
+
+export interface InteractionStateFailure {
+  url: string;
+  type: InteractionStateType;
+  name: string;
+  trigger: string;
+  reason: string;
+}
 
 export interface SourceLocation {
   file?: string;
@@ -12,6 +21,7 @@ export interface SourceLocation {
   selector?: string;
   interactionState?: string;
   interactionTrigger?: string;
+  interactionType?: InteractionStateType;
 }
 
 export interface FindingOccurrence {
@@ -189,6 +199,8 @@ export interface ScanMetadata {
   commonFindings?: number;
   interactionStatesScanned?: number;
   interactionStatesRequested?: boolean;
+  interactionStateCounts?: Partial<Record<InteractionStateType, number>>;
+  interactionStateFailures?: InteractionStateFailure[];
   wcagLevel?: WcagLevel;
   profile?: ScanProfile;
   incomplete?: Array<{ url: string; reason: string; stage?: "navigation" | "audit"; attempts?: number }>;

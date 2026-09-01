@@ -129,7 +129,7 @@ describe("local scan history", () => {
     expect(comparison.resolvedFindings[0].fingerprint).toBe("resolved");
   });
 
-  it("only auto-compares runs that used the same disclosure-state setting", async () => {
+  it("only auto-compares runs that used the same interactive-state setting", async () => {
     const directory = await mkdtemp(join(tmpdir(), "ada-history-interactions-"));
     directories.push(directory);
     const initialOnly = await saveScanRun(result("2026-08-28T12:00:00.000Z", [finding("initial", ".initial")]), directory);

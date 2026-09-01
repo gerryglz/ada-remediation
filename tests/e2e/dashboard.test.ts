@@ -7,6 +7,7 @@ import { chromium, type Browser } from "playwright";
 import { startUiServer } from "../../src/ui/server.js";
 
 const fixturePath = new URL("../fixtures/grouped-aria/index.html", import.meta.url);
+const unsafeDialogFixturePath = new URL("../fixtures/unsafe-dialog/index.html", import.meta.url);
 
 async function closeServer(server: Server | undefined): Promise<void> {
   if (!server?.listening) return;
@@ -15,8 +16,8 @@ async function closeServer(server: Server | undefined): Promise<void> {
   });
 }
 
-async function startFixtureServer(requireAuthentication = false): Promise<{ server: Server; url: string }> {
-  const html = await readFile(fixturePath, "utf8");
+async function startFixtureServer(requireAuthentication = false, sourcePath = fixturePath): Promise<{ server: Server; url: string }> {
+  const html = await readFile(sourcePath, "utf8");
   const server = createServer((request, response) => {
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     const authenticated = request.headers.cookie?.split(";").some((cookie) => cookie.trim() === "ada-auth=session-token-93a761") ?? false;
@@ -137,7 +138,7 @@ describe("dashboard reviewer workflow", () => {
 
     await page.getByRole("button", { name: "Scan history" }).click();
     await page.locator("#history-list .history-row").first().waitFor();
-    await expect(page.locator("#history-list .history-row").first().textContent()).resolves.toContain("WCAG AA · Single page · screenshots off · disclosure states off · public");
+    await expect(page.locator("#history-list .history-row").first().textContent()).resolves.toContain("WCAG AA · Single page · screenshots off · interactive states off · public");
     await page.locator("#history-list .history-row").first().getByRole("button", { name: /Run this saved profile again/ }).click();
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
     await expect(page.locator(".new-metric strong").textContent()).resolves.toBe("0");
@@ -222,7 +223,7 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#history-list .history-row").count()).resolves.toBe(1);
   });
 
-  it("audits opt-in disclosure states and records how to reproduce a revealed finding", async () => {
+  it("audits opt-in disclosure, tab, and dialog states and records how to reproduce their findings", async () => {
     const fixture = await startFixtureServer();
     fixtureServer = fixture.server;
     historyDirectory = await mkdtemp(join(tmpdir(), "ada-dashboard-interactions-"));
@@ -239,15 +240,50 @@ describe("dashboard reviewer workflow", () => {
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
 
     const report = await (await page.request.get(`${dashboard.url}/api/report.json`)).json();
-    const revealed = report.findings.find((finding: { ruleId: string }) => finding.ruleId === "button-name");
-    expect(report.metadata.interactionStatesScanned).toBe(1);
-    expect(revealed.location).toMatchObject({
+    const revealed = report.findings.filter((finding: { ruleId: string; location: { interactionType?: string } }) => finding.ruleId === "button-name" && finding.location.interactionType);
+    expect(report.metadata.interactionStatesScanned).toBe(3);
+    expect(report.metadata.interactionStateCounts).toEqual({ disclosure: 1, tab: 1, dialog: 1 });
+    expect(report.metadata.interactionStateFailures).toEqual([]);
+    expect(revealed.map((finding: { location: { interactionType: string } }) => finding.location.interactionType).sort()).toEqual(["dialog", "disclosure", "tab"]);
+    const disclosureFinding = revealed.find((finding: { location: { interactionType: string } }) => finding.location.interactionType === "disclosure");
+    expect(disclosureFinding.location).toMatchObject({
       interactionState: "Account actions",
       interactionTrigger: "#account-disclosure",
+      interactionType: "disclosure",
     });
 
-    await page.getByText("After opening Account actions", { exact: false }).first().click();
+    const disclosureGroup = report.findingGroups.find((group: { findingFingerprints: string[] }) => group.findingFingerprints.includes(disclosureFinding.fingerprint));
+    await page.locator(".component-group-nav").filter({ hasText: disclosureGroup.name }).click();
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Revealed interaction state");
+    await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Disclosure");
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("#account-disclosure");
+  });
+
+  it("reports a matched dialog that cannot be safely restored as manual follow-up", async () => {
+    const fixture = await startFixtureServer(false, unsafeDialogFixturePath);
+    fixtureServer = fixture.server;
+    historyDirectory = await mkdtemp(join(tmpdir(), "ada-dashboard-unsafe-dialog-"));
+    const dashboard = await startUiServer({ host: "127.0.0.1", port: 0, historyDirectory });
+    uiServer = dashboard.server;
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+
+    await page.goto(dashboard.url);
+    await page.locator("#url").fill(fixture.url);
+    await page.locator("#screenshots").uncheck();
+    await page.locator("#interaction-states").check();
+    await page.getByRole("button", { name: "Scan page" }).click();
+    await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
+
+    const report = await (await page.request.get(`${dashboard.url}/api/report.json`)).json();
+    expect(report.metadata.interactionStateCounts).toEqual({ disclosure: 0, tab: 0, dialog: 1 });
+    expect(report.metadata.interactionStateFailures).toHaveLength(1);
+    expect(report.metadata.interactionStateFailures[0]).toMatchObject({
+      type: "dialog",
+      name: "Open sticky dialog",
+      trigger: "#sticky-dialog-trigger",
+    });
+    await expect(page.locator("#incomplete").textContent()).resolves.toContain("Interactive states skipped");
+    await expect(page.locator("#incomplete").textContent()).resolves.toContain("#sticky-dialog-trigger");
   });
 });

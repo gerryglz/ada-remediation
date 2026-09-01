@@ -12,7 +12,11 @@ describe("reporters", () => {
     result.findings[0].location.pageTitle = "Example problem page";
     result.findings[0].location.interactionState = "Account actions";
     result.findings[0].location.interactionTrigger = "#account-disclosure";
+    result.findings[0].location.interactionType = "disclosure";
     result.metadata.interactionStatesScanned = 1;
+    result.metadata.interactionStatesRequested = true;
+    result.metadata.interactionStateCounts = { disclosure: 1, tab: 0, dialog: 0 };
+    result.metadata.interactionStateFailures = [{ url: "https://example.com/problem", type: "dialog", name: "Account help", trigger: "#help-trigger", reason: "The dialog opened, but Escape did not close it; remaining states were skipped to avoid unsafe interaction." }];
     result.findings[0].helpUrl = "https://dequeuniversity.com/rules/axe/4.13/image-alt";
     result.findings[0].title = "<object> elements must have alternative text";
     result.findings[0].remediationGuidance = {
@@ -73,18 +77,19 @@ describe("reporters", () => {
       notes: "Manual review is in progress.",
     };
     expect(terminalReport(result)).toContain("Conformance target: WCAG 2.2 Level AAA");
-    expect(terminalReport(result)).toContain("Scan profile: Single page; screenshots on; disclosure states on; authenticated session");
+    expect(terminalReport(result)).toContain("Scan profile: Single page; screenshots on; interactive states on; authenticated session");
     expect(terminalReport(result)).toContain("Automated results cannot certify");
     expect(terminalReport(result)).toContain("Recurring Navigation menu: 2 pages / 2 occurrences");
     expect(terminalReport(result)).toContain("Finding groups:");
     expect(terminalReport(result)).toContain("Component — Primary navigation: 2 findings");
-    expect(terminalReport(result)).toContain("Disclosure states opened: 1");
+    expect(terminalReport(result)).toContain("Interactive states opened: 1 state(s): 1 disclosure, 0 tab, 0 dialog");
+    expect(terminalReport(result)).toContain("Interactive states skipped: 1");
     expect(terminalReport(result)).toContain("after opening Account actions");
     expect(terminalReport(result)).toContain("Review: Action required — Update the shared navigation component.");
     const html = htmlReport(result);
     expect(html).toContain("Findings in context");
     expect(html).toContain("Conformance target:</strong> WCAG 2.2 Level AAA");
-    expect(html).toContain("Saved scan profile:</strong> Single page; screenshots on; disclosure states on; authenticated session");
+    expect(html).toContain("Saved scan profile:</strong> Single page; screenshots on; interactive states on; authenticated session");
     expect(html).toContain("Example problem page");
     expect(html).toContain("data:image/jpeg;base64,ZmFrZQ==");
     expect(html).toContain("Rendered HTML context");
@@ -98,8 +103,11 @@ describe("reporters", () => {
     expect(html).toContain("Finding summary");
     expect(html).toContain("Where it was found");
     expect(html).toContain("Revealed interaction state");
+    expect(html).toContain("Disclosure · Account actions");
     expect(html).toContain("#account-disclosure");
     expect(html).toContain("States opened");
+    expect(html).toContain("States skipped");
+    expect(html).toContain("Interactive states skipped");
     expect(html).toContain("Navigation menu</span>");
     expect(html).toContain(".component-badge{border:1px solid var(--accent-orange)");
     expect(html).toContain("2 PAGES");
@@ -274,7 +282,9 @@ describe("reporters", () => {
     expect(html).toContain("Download HTML report");
     expect(html).toContain("Capture screenshots");
     expect(html).toContain('id="interaction-states"');
-    expect(html).toContain("Scan disclosure states");
+    expect(html).toContain("Scan interactive states");
+    expect(html).toContain("interactionTypeLabel");
+    expect(html).toContain("States skipped");
     expect(html).toContain("WCAG 2.2 conformance target");
     expect(html).toContain("Level A — essential");
     expect(html).toContain("Level AA — common target");
