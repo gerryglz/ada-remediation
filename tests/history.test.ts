@@ -1,8 +1,9 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { compareScanRuns, comparisonForRun, deleteScanRun, getScanRun, listScanRuns, saveScanRun, scanProfilesCompatible, updateRunReview, websiteKey } from "../src/history.js";
+import { compareScanRuns, comparisonForRun, deleteScanRun, getScanRun, HISTORY_SCHEMA_VERSION, listScanRuns, reviewedScanResult, saveScanRun, scanProfilesCompatible, updateRunReview, websiteKey } from "../src/history.js";
+import { htmlReport, jsonReport } from "../src/reporters/index.js";
 import type { Finding, ScanResult } from "../src/types.js";
 
 const directories: string[] = [];
@@ -53,6 +54,7 @@ describe("local scan history", () => {
     const directory = await mkdtemp(join(tmpdir(), "ada-history-"));
     directories.push(directory);
     const saved = await saveScanRun(result("2026-08-30T12:00:00.000Z", [finding("one", ".one")]), directory);
+    expect(saved.schemaVersion).toBe(HISTORY_SCHEMA_VERSION);
     expect(websiteKey(saved.result.metadata.target)).toBe("https://example.com");
     expect((await listScanRuns("https://example.com/another", directory))[0].id).toBe(saved.id);
 
@@ -84,10 +86,13 @@ describe("local scan history", () => {
     const saved = await saveScanRun(result("2026-08-30T12:00:00.000Z", []), directory);
     await writeFile(join(directory, `${saved.id}.json`), JSON.stringify({
       ...saved,
+      schemaVersion: "1.0",
       review: { completedManualIds: ["keyboard-focus"], notes: "Legacy review" },
     }), "utf8");
 
-    expect((await getScanRun(saved.id, directory))?.review).toEqual({
+    const migrated = await getScanRun(saved.id, directory);
+    expect(migrated?.schemaVersion).toBe(HISTORY_SCHEMA_VERSION);
+    expect(migrated?.review).toEqual({
       manualTasks: {
         "keyboard-focus": {
           status: "not-tested",
@@ -97,6 +102,49 @@ describe("local scan history", () => {
       findings: {},
       notes: "Legacy review",
     });
+    await updateRunReview(saved.id, { notes: "Saved after upgrading" }, directory);
+    const rewritten = JSON.parse(await readFile(join(directory, `${saved.id}.json`), "utf8")) as { schemaVersion: string; review: { notes: string } };
+    expect(rewritten).toMatchObject({ schemaVersion: HISTORY_SCHEMA_VERSION, review: { notes: "Saved after upgrading" } });
+  });
+
+  it("preserves migrated review records in JSON and HTML exports", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "ada-history-export-migration-"));
+    directories.push(directory);
+    const legacyResult = result("2026-08-30T12:00:00.000Z", [finding("one", ".one")]);
+    legacyResult.metadata.profile = {
+      target: legacyResult.metadata.target,
+      wcagLevel: "AA",
+      crawl: false,
+      maxPages: 1,
+      captureScreenshots: false,
+      interactionStates: false,
+      authentication: "public",
+    };
+    const saved = await saveScanRun(legacyResult, directory);
+    await writeFile(join(directory, `${saved.id}.json`), JSON.stringify({
+      ...saved,
+      schemaVersion: "1.0",
+      review: {
+        manualTasks: { "keyboard-focus": { status: "pass", notes: "Keyboard path verified." } },
+        findings: { one: { disposition: "action-required", notes: "Update the shared button." } },
+        notes: "Upgrade export regression record.",
+      },
+    }), "utf8");
+
+    const migrated = await getScanRun(saved.id, directory);
+    expect(migrated).toBeDefined();
+    const exportResult = reviewedScanResult(migrated!);
+    const json = JSON.parse(jsonReport(exportResult)) as ScanResult;
+    const html = htmlReport(exportResult);
+
+    expect(json.schemaVersion).toBe("1.0");
+    expect(json.review).toEqual(migrated!.review);
+    expect(json.metadata.profile).toEqual(legacyResult.metadata.profile);
+    expect(html).toContain("Action required");
+    expect(html).toContain("Update the shared button.");
+    expect(html).toContain("Keyboard path verified.");
+    expect(html).toContain("Upgrade export regression record.");
+    expect(html).not.toContain("completedManualIds");
   });
 
   it("carries finding reviews to stable findings in a compatible rescan", async () => {
@@ -119,11 +167,14 @@ describe("local scan history", () => {
     directories.push(directory);
     await writeFile(join(directory, "00000000-0000-0000-0000-000000000000.json"), "not json", "utf8");
     const base = await saveScanRun(result("2026-08-29T12:00:00.000Z", [finding("existing", ".same"), finding("resolved", ".old")]), directory);
+    const unknownSchemaId = "11111111-1111-1111-1111-111111111111";
+    await writeFile(join(directory, `${unknownSchemaId}.json`), JSON.stringify({ ...base, id: unknownSchemaId, schemaVersion: "9.9" }), "utf8");
     const currentFinding = { ...finding("representative-changed", ".same"), occurrences: [{ fingerprint: "existing", location: { url: "https://example.com/", selector: ".same" } }] };
     const current = await saveScanRun(result("2026-08-30T12:00:00.000Z", [currentFinding, finding("new", ".new")]), directory);
     const comparison = compareScanRuns(current, base);
 
     expect((await listScanRuns(undefined, directory)).map((run) => run.id)).toEqual([current.id, base.id]);
+    expect(await getScanRun(unknownSchemaId, directory)).toBeUndefined();
     expect(comparison.statuses).toEqual({ "representative-changed": "existing", new: "new" });
     expect({ new: comparison.newCount, existing: comparison.existingCount, resolved: comparison.resolvedCount }).toEqual({ new: 1, existing: 1, resolved: 1 });
     expect(comparison.resolvedFindings[0].fingerprint).toBe("resolved");

@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.2.0 — 2026-09-01
+
 ### Added
 
 - Version 0.2 product roadmap covering finding triage, repeatable profiles, authenticated dashboard scans, broader interaction coverage, and private-release stabilization.
@@ -14,12 +16,14 @@ All notable changes to this project will be documented in this file.
 - Keyboard focus, activation, dialog-return, and horizontal-reflow browser assertions.
 - Opt-in disclosure-state scanning for visible native controls with valid `aria-expanded` and `aria-controls` relationships.
 - Conservative interactive-state recipes for ARIA disclosures, tabs, and dialogs, with per-type totals, exact reproduction triggers, safe state restoration, and explicit skipped-state follow-up.
+- Conservative single-step carousel scanning with stable-state checks, exact restoration verification, and manual follow-up for auto-rotating or ambiguous carousels.
 - Reproduction context for findings exposed only after a disclosure is opened, including the state name and trigger selector in dashboard, terminal, JSON, HTML, and AI-remediation output.
 - Per-task manual review records with Pass, Needs attention, Not applicable, and Not tested outcomes; evidence notes; status filters and totals; local persistence; and JSON/HTML export support.
 - Single-instance dashboard runtime tracking and `npm run ui:stop` for safely releasing its local port from another terminal.
 - Collapsible automated and manual finding filters that preserve the queue's review space.
 - Same-origin crawl exclusions for PDFs, media, office documents, and archives, reported separately from genuine incomplete HTML pages.
 - Component-level issue sets that consolidate repeated child selectors, identify likely shared ARIA owners, and keep every affected element and source page available for verification.
+- Explicit migration from private history-wrapper schema 1.0 to 1.1, plus regression coverage proving migrated review records remain present in JSON and HTML exports.
 
 ### Fixed
 
