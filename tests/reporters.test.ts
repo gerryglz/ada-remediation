@@ -17,6 +17,7 @@ describe("reporters", () => {
     result.metadata.interactionStatesRequested = true;
     result.metadata.interactionStateCounts = { disclosure: 1, tab: 0, dialog: 0 };
     result.metadata.interactionStateFailures = [{ url: "https://example.com/problem", type: "dialog", name: "Account help", trigger: "#help-trigger", reason: "The dialog opened, but Escape did not close it; remaining states were skipped to avoid unsafe interaction." }];
+    result.metadata.skippedAssets = [{ url: "https://example.com/menu.pdf", kind: "pdf", reason: "PDF documents require a dedicated document accessibility review and are outside this HTML website scan." }];
     result.findings[0].helpUrl = "https://dequeuniversity.com/rules/axe/4.13/image-alt";
     result.findings[0].title = "<object> elements must have alternative text";
     result.findings[0].remediationGuidance = {
@@ -84,6 +85,8 @@ describe("reporters", () => {
     expect(terminalReport(result)).toContain("Component — Primary navigation: 2 findings");
     expect(terminalReport(result)).toContain("Interactive states opened: 1 state(s): 1 disclosure, 0 tab, 0 dialog");
     expect(terminalReport(result)).toContain("Interactive states skipped: 1");
+    expect(terminalReport(result)).toContain("Non-HTML assets skipped: 1");
+    expect(terminalReport(result)).toContain("https://example.com/menu.pdf");
     expect(terminalReport(result)).toContain("after opening Account actions");
     expect(terminalReport(result)).toContain("Review: Action required — Update the shared navigation component.");
     const html = htmlReport(result);
@@ -108,6 +111,8 @@ describe("reporters", () => {
     expect(html).toContain("States opened");
     expect(html).toContain("States skipped");
     expect(html).toContain("Interactive states skipped");
+    expect(html).toContain("Skipped non-HTML assets · 1");
+    expect(html).toContain("https://example.com/menu.pdf");
     expect(html).toContain("Navigation menu</span>");
     expect(html).toContain(".component-badge{border:1px solid var(--accent-orange)");
     expect(html).toContain("2 PAGES");
@@ -290,6 +295,10 @@ describe("reporters", () => {
     expect(html).toContain("Level AA — common target");
     expect(html).toContain("Level AAA — enhanced");
     expect(html).toContain('id="level-filters"');
+    expect(html).toContain('id="filter-toggle"');
+    expect(html).toContain('aria-controls="filter-groups manual-status-filters"');
+    expect(html).toContain("Skipped non-HTML assets");
+    expect(html).toContain("syncFilterVisibility");
     expect(html).toContain("All levels");
     expect(html).toContain("activeLevel='all'");
     expect(html).toContain("f.wcagLevel===activeLevel");

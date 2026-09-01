@@ -91,6 +91,7 @@ export function terminalReport(result: ScanResult): string {
     `Scanned: ${result.metadata.pagesOrFilesScanned} | Findings: ${result.findings.length} unique / ${result.metadata.findingOccurrences ?? result.findings.length} occurrences | Manual checks: ${manualChecks.length}`,
     ...(result.metadata.interactionStatesRequested ? [`Interactive states opened: ${interactionSummary(result)}`] : []),
     ...(result.metadata.interactionStateFailures?.length ? [`Interactive states skipped: ${result.metadata.interactionStateFailures.length}`] : []),
+    ...(result.metadata.skippedAssets?.length ? [`Non-HTML assets skipped: ${result.metadata.skippedAssets.length}`] : []),
     ...(wcagTargetText(result) ? [`Conformance target: ${wcagTargetText(result)}`] : []),
     ...(scanProfileText(result) ? [`Scan profile: ${scanProfileText(result)}`] : []),
     `Critical ${counts.critical} | Serious ${counts.serious} | Moderate ${counts.moderate} | Minor ${counts.minor}`,
@@ -119,6 +120,11 @@ export function terminalReport(result: ScanResult): string {
   if (result.metadata.incomplete?.length) {
     lines.push("Incomplete pages:");
     for (const item of result.metadata.incomplete) lines.push(`  ${item.url}: ${incompleteDetail(item)}`);
+    lines.push("");
+  }
+  if (result.metadata.skippedAssets?.length) {
+    lines.push("Skipped non-HTML assets:");
+    for (const item of result.metadata.skippedAssets) lines.push(`  ${item.url}: ${item.reason}`);
     lines.push("");
   }
   if (result.metadata.interactionStateFailures?.length) {
@@ -245,6 +251,9 @@ export function htmlReport(result: ScanResult): string {
   const incomplete = result.metadata.incomplete?.length
     ? `<section class="notice"><strong>Incomplete pages</strong><ul>${result.metadata.incomplete.map((item) => `<li><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.url)}</a> — ${escapeHtml(incompleteDetail(item))}</li>`).join("")}</ul></section>`
     : "";
+  const skippedAssets = result.metadata.skippedAssets?.length
+    ? `<details class="notice"><summary><strong>Skipped non-HTML assets · ${result.metadata.skippedAssets.length}</strong></summary><p>These files were intentionally excluded from the HTML crawl. PDFs and other downloads need a format-specific accessibility review.</p><ul>${result.metadata.skippedAssets.map((item) => `<li><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.url)}</a> — ${escapeHtml(item.reason)}</li>`).join("")}</ul></details>`
+    : "";
   const interactionFailures = result.metadata.interactionStateFailures?.length
     ? `<section class="notice"><strong>Interactive states skipped</strong><p>These controls matched a conservative recipe but could not be safely opened and restored. Review them manually.</p><ul>${result.metadata.interactionStateFailures.map((item) => `<li><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.url)}</a> — ${interactionTypeLabel(item.type)} “${escapeHtml(item.name)}” <code>${escapeHtml(item.trigger)}</code>: ${escapeHtml(item.reason)}</li>`).join("")}</ul></section>`
     : "";
@@ -271,6 +280,7 @@ html body button:focus,html body a:focus{box-shadow:0 0 0 2px rgba(100,149,237,.
 <section class="summary" aria-label="Finding totals"><div class="metric"><strong>${result.findings.length}</strong><span>Unique findings</span></div><div class="metric"><strong>${result.metadata.findingOccurrences ?? result.findings.length}</strong><span>Occurrences</span></div><div class="metric"><strong>${result.metadata.interactionStatesScanned ?? 0}</strong><span>States opened</span></div><div class="metric"><strong>${result.metadata.interactionStateFailures?.length ?? 0}</strong><span>States skipped</span></div><div class="metric"><strong>${counts.critical}</strong><span>Critical</span></div><div class="metric"><strong>${counts.serious}</strong><span>Serious</span></div><div class="metric"><strong>${counts.moderate}</strong><span>Moderate</span></div><div class="metric"><strong>${counts.minor}</strong><span>Minor</span></div></section>
 <p class="notice">${escapeHtml(result.notice)}</p>
 ${incomplete}
+${skippedAssets}
 ${interactionFailures}
 ${findingReviewSummary}
 ${manualChecklist}

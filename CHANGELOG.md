@@ -17,6 +17,8 @@ All notable changes to this project will be documented in this file.
 - Reproduction context for findings exposed only after a disclosure is opened, including the state name and trigger selector in dashboard, terminal, JSON, HTML, and AI-remediation output.
 - Per-task manual review records with Pass, Needs attention, Not applicable, and Not tested outcomes; evidence notes; status filters and totals; local persistence; and JSON/HTML export support.
 - Single-instance dashboard runtime tracking and `npm run ui:stop` for safely releasing its local port from another terminal.
+- Collapsible automated and manual finding filters that preserve the queue's review space.
+- Same-origin crawl exclusions for PDFs, media, office documents, and archives, reported separately from genuine incomplete HTML pages.
 
 ### Fixed
 

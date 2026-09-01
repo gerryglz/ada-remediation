@@ -137,6 +137,13 @@ describe("dashboard self-accessibility gate", () => {
     await page.keyboard.press("Escape");
     await expect(screenshotButton.evaluate((element) => element === document.activeElement)).resolves.toBe(true);
 
+    const filterToggle = page.locator("#filter-toggle");
+    await expect(filterToggle.textContent()).resolves.toBe("Show filters");
+    await expect(page.locator("#filter-groups").isHidden()).resolves.toBe(true);
+    await filterToggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(filterToggle.getAttribute("aria-expanded")).resolves.toBe("true");
+    await expect(page.locator("#filter-groups").isVisible()).resolves.toBe(true);
     const criticalFilter = page.locator("#filters .filter").filter({ hasText: "Critical" });
     await criticalFilter.focus();
     await page.keyboard.press("Enter");

@@ -91,6 +91,9 @@ describe("dashboard reviewer workflow", () => {
     expect(report.findings.length).toBeGreaterThan(0);
     expect(report.findings[0].renderedHtmlContext.html).toContain("\n");
     await expect(page.locator(".new-metric strong").textContent()).resolves.toBe(String(report.findings.length));
+    await expect(page.locator("#filter-groups").isHidden()).resolves.toBe(true);
+    await page.getByRole("button", { name: "Show filters" }).click();
+    await expect(page.locator("#filter-groups").isVisible()).resolves.toBe(true);
 
     const selectedReviewFingerprints = report.findingGroups?.find((group: { findingFingerprints: string[] }) => group.findingFingerprints.length > 1)?.findingFingerprints
       ?? [report.findings[0].fingerprint];
@@ -113,6 +116,7 @@ describe("dashboard reviewer workflow", () => {
 
     await page.getByRole("button", { name: "Manual review" }).click();
     await expect(page.locator("#queue-heading").textContent()).resolves.toBe("Manual review");
+    await expect(page.locator("#manual-status-filters").isVisible()).resolves.toBe(true);
     await expect(page.locator("#finding-list .manual-nav").count()).resolves.toBeGreaterThan(0);
     await page.locator("#finding-detail").getByRole("button", { name: "Pass", exact: true }).click();
     await page.locator("#save-state").getByText("Saved locally").waitFor();
@@ -159,6 +163,39 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#finding-detail textarea").inputValue()).resolves.toBe("Keyboard access and focus order verified with NVDA.");
     await expect(page.locator("#run-notes").inputValue()).resolves.toBe("Keyboard review assigned to the accessibility team.");
     expect(consoleErrors).toEqual([]);
+  });
+
+  it("skips PDFs discovered by a same-origin crawl without reporting an incomplete page", async () => {
+    const fixture = await startFixtureServer();
+    fixtureServer = fixture.server;
+    historyDirectory = await mkdtemp(join(tmpdir(), "ada-dashboard-assets-"));
+    const dashboard = await startUiServer({ host: "127.0.0.1", port: 0, historyDirectory });
+    uiServer = dashboard.server;
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+
+    await page.goto(dashboard.url);
+    await page.locator("#url").fill(fixture.url);
+    await page.locator("#crawl").check();
+    await page.locator("#max-pages").fill("3");
+    await page.locator("#screenshots").uncheck();
+    await page.getByRole("button", { name: "Scan page" }).click();
+    await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
+
+    const report = await (await page.request.get(`${dashboard.url}/api/report.json`)).json();
+    expect(report.metadata.pagesOrFilesScanned).toBe(1);
+    expect(report.metadata.incomplete).toEqual([]);
+    expect(report.metadata.skippedAssets).toEqual([
+      expect.objectContaining({
+        url: new URL("/downloads/sample-menu.pdf", fixture.url).href,
+        kind: "pdf",
+      }),
+    ]);
+    const skippedAssets = page.locator("#incomplete .skipped-assets");
+    await expect(skippedAssets.locator("summary").textContent()).resolves.toContain("Skipped non-HTML assets · 1");
+    await expect(skippedAssets.getAttribute("open")).resolves.toBeNull();
+    await skippedAssets.locator("summary").click();
+    await expect(skippedAssets.textContent()).resolves.toContain("dedicated document accessibility review");
   });
 
   it("uses a local storage state without persisting its path or session contents", async () => {

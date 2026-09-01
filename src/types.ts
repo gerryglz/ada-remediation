@@ -188,6 +188,14 @@ export type FindingIssueCategory =
   | "Navigation"
   | "Structure";
 
+export type SkippedAssetKind = "pdf" | "image" | "audio" | "video" | "download";
+
+export interface SkippedAsset {
+  url: string;
+  kind: SkippedAssetKind;
+  reason: string;
+}
+
 export interface ScanMetadata {
   scanner: "repository" | "url" | "site";
   target: string;
@@ -201,6 +209,7 @@ export interface ScanMetadata {
   interactionStatesRequested?: boolean;
   interactionStateCounts?: Partial<Record<InteractionStateType, number>>;
   interactionStateFailures?: InteractionStateFailure[];
+  skippedAssets?: SkippedAsset[];
   wcagLevel?: WcagLevel;
   profile?: ScanProfile;
   incomplete?: Array<{ url: string; reason: string; stage?: "navigation" | "audit"; attempts?: number }>;

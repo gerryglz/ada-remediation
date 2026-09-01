@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
-import { LEGAL_NOTICE, type ContrastEvidence, type Finding, type FindingComponent, type InteractionStateFailure, type InteractionStateType, type RenderedHtmlContext, type ScanResult, type Severity, type VisualEvidence, type WcagLevel } from "../types.js";
+import { LEGAL_NOTICE, type ContrastEvidence, type Finding, type FindingComponent, type InteractionStateFailure, type InteractionStateType, type RenderedHtmlContext, type ScanResult, type Severity, type SkippedAsset, type SkippedAssetKind, type VisualEvidence, type WcagLevel } from "../types.js";
 import { fingerprintFinding, TOOL_VERSION } from "../utils.js";
 import { buildCodeSuggestion } from "../suggestions.js";
 import { axeTagsForWcagLevel, DEFAULT_WCAG_LEVEL, wcagLevelFromTags } from "../wcag.js";
@@ -12,6 +12,35 @@ import { formatHtmlSnippet } from "../html.js";
 
 const require = createRequire(import.meta.url);
 const axePath = require.resolve("axe-core/axe.min.js");
+
+const skippedAssetExtensions: Record<SkippedAssetKind, ReadonlySet<string>> = {
+  pdf: new Set([".pdf"]),
+  image: new Set([".avif", ".bmp", ".gif", ".ico", ".jpeg", ".jpg", ".png", ".svg", ".tif", ".tiff", ".webp"]),
+  audio: new Set([".aac", ".flac", ".m4a", ".mp3", ".oga", ".ogg", ".wav"]),
+  video: new Set([".avi", ".m4v", ".mov", ".mp4", ".mpeg", ".mpg", ".ogv", ".webm"]),
+  download: new Set([".7z", ".doc", ".docx", ".ppt", ".pptx", ".rar", ".tar", ".xls", ".xlsx", ".zip"]),
+};
+
+const skippedAssetReasons: Record<SkippedAssetKind, string> = {
+  pdf: "PDF documents require a dedicated document accessibility review and are outside this HTML website scan.",
+  image: "Image assets are evaluated through the HTML page that uses them, not by navigating to the image file directly.",
+  audio: "Audio assets require a media-specific review for alternatives such as transcripts and are outside this HTML website scan.",
+  video: "Video assets require a media-specific review for captions, transcripts, and audio description and are outside this HTML website scan.",
+  download: "Downloadable files require a format-specific accessibility review and are outside this HTML website scan.",
+};
+
+export function classifySkippedAssetUrl(value: string): SkippedAsset | undefined {
+  let pathname: string;
+  try {
+    pathname = new URL(value).pathname.toLowerCase().replace(/\/+$/, "");
+  } catch {
+    return undefined;
+  }
+  const extension = pathname.match(/(\.[a-z0-9]+)$/)?.[1];
+  if (!extension) return undefined;
+  const kind = (Object.entries(skippedAssetExtensions) as Array<[SkippedAssetKind, ReadonlySet<string>]>).find(([, extensions]) => extensions.has(extension))?.[0];
+  return kind ? { url: value, kind, reason: skippedAssetReasons[kind] } : undefined;
+}
 
 interface AxeNode {
   html: string;
@@ -456,8 +485,19 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
   let interactionStatesScanned = 0;
   const interactionStateCounts: Record<InteractionStateType, number> = { disclosure: 0, tab: 0, dialog: 0 };
   const interactionStateFailures: InteractionStateFailure[] = [];
-  const queued = targets.map((target) => new URL(target).href);
-  const allowedOrigins = new Set(queued.map((target) => new URL(target).origin));
+  const skippedAssets = new Map<string, SkippedAsset>();
+  const normalizedTargets = targets.map((target) => new URL(target).href);
+  const queued: string[] = [];
+  const enqueued = new Set<string>();
+  for (const target of normalizedTargets) {
+    const skippedAsset = classifySkippedAssetUrl(target);
+    if (skippedAsset) skippedAssets.set(target, skippedAsset);
+    else {
+      queued.push(target);
+      enqueued.add(target);
+    }
+  }
+  const allowedOrigins = new Set(normalizedTargets.map((target) => new URL(target).origin));
   const visited = new Set<string>();
   const totalPages = Math.max(1, maxPages);
   let reportedPercent = 0;
@@ -508,8 +548,14 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
             try {
               const candidate = new URL(href);
               candidate.hash = "";
-              if (["http:", "https:"].includes(candidate.protocol) && allowedOrigins.has(candidate.origin) && !visited.has(candidate.href)) {
+              const skippedAsset = classifySkippedAssetUrl(candidate.href);
+              if (skippedAsset && allowedOrigins.has(candidate.origin)) {
+                skippedAssets.set(candidate.href, skippedAsset);
+                continue;
+              }
+              if (["http:", "https:"].includes(candidate.protocol) && allowedOrigins.has(candidate.origin) && !visited.has(candidate.href) && !enqueued.has(candidate.href)) {
                 queued.push(candidate.href);
+                enqueued.add(candidate.href);
               }
             } catch {
               // Ignore malformed or non-URL href values.
@@ -562,6 +608,7 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
       interactionStatesRequested: (options.interactionStateLimit ?? 0) > 0,
       interactionStateCounts,
       interactionStateFailures,
+      skippedAssets: [...skippedAssets.values()],
       wcagLevel,
       profile: {
         target: targets.join(", "),
