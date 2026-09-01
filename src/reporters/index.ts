@@ -11,19 +11,19 @@ export type ReportFormat = "terminal" | "json" | "html" | "sarif";
 
 function locationText(finding: Finding): string {
   const location = finding.location;
-  const state = location.interactionState ? ` — after ${location.interactionType === "tab" ? "selecting" : "opening"} ${location.interactionState}` : "";
+  const state = location.interactionState ? ` — after ${location.interactionType === "tab" ? "selecting" : location.interactionType === "carousel" ? "advancing" : "opening"} ${location.interactionState}` : "";
   if (location.file) return `${location.file}${location.line ? `:${location.line}:${location.column ?? 1}` : ""}${state}`;
   return `${location.url ?? "unknown"}${location.selector ? ` (${location.selector})` : ""}${state}`;
 }
 
 function interactionTypeLabel(type: Finding["location"]["interactionType"]): string {
-  return type === "tab" ? "Tab" : type === "dialog" ? "Dialog" : type === "disclosure" ? "Disclosure" : "Interactive";
+  return type === "tab" ? "Tab" : type === "dialog" ? "Dialog" : type === "disclosure" ? "Disclosure" : type === "carousel" ? "Carousel" : "Interactive";
 }
 
 function interactionSummary(result: ScanResult): string {
   const counts = result.metadata.interactionStateCounts;
   if (!counts) return `${result.metadata.interactionStatesScanned ?? 0} state(s)`;
-  return `${result.metadata.interactionStatesScanned ?? 0} state(s): ${counts.disclosure ?? 0} disclosure, ${counts.tab ?? 0} tab, ${counts.dialog ?? 0} dialog`;
+  return `${result.metadata.interactionStatesScanned ?? 0} state(s): ${counts.disclosure ?? 0} disclosure, ${counts.tab ?? 0} tab, ${counts.dialog ?? 0} dialog, ${counts.carousel ?? 0} carousel`;
 }
 
 function technicalText(value: string): string {
@@ -162,7 +162,7 @@ function findingCard(finding: Finding, result: ScanResult): string {
     : `<div class="location-card"><span class="meta-label">Source file</span><strong>${escapeHtml(locationText(finding))}</strong></div>`;
   const selector = `<div class="location-card"><span class="meta-label">Affected element</span><code class="selector">${escapeHtml(finding.location.selector || "No CSS selector was reported")}</code><p class="meta-help">Use this selector to locate the element in browser developer tools.</p></div>`;
   const interactionState = finding.location.interactionState
-    ? `<div class="location-card"><span class="meta-label">Revealed interaction state</span><strong>${interactionTypeLabel(finding.location.interactionType)} · ${escapeHtml(finding.location.interactionState)}</strong>${finding.location.interactionTrigger ? `<code class="selector">${escapeHtml(finding.location.interactionTrigger)}</code>` : ""}<p class="meta-help">This issue appeared only after the scanner ${finding.location.interactionType === "tab" ? "selected this tab" : `opened this ${finding.location.interactionType ?? "interactive control"}`}. Reproduce that state before verifying the fix.</p></div>`
+    ? `<div class="location-card"><span class="meta-label">Revealed interaction state</span><strong>${interactionTypeLabel(finding.location.interactionType)} · ${escapeHtml(finding.location.interactionState)}</strong>${finding.location.interactionTrigger ? `<code class="selector">${escapeHtml(finding.location.interactionTrigger)}</code>` : ""}<p class="meta-help">This issue appeared only after the scanner ${finding.location.interactionType === "tab" ? "selected this tab" : finding.location.interactionType === "carousel" ? "advanced this carousel" : `opened this ${finding.location.interactionType ?? "interactive control"}`}. Reproduce that state before verifying the fix.</p></div>`
     : "";
   const affectedPages = finding.scope === "common" && finding.occurrences
     ? `<section class="report-section common-pages"><h3>Affected pages</h3><p>This recurring ${escapeHtml((finding.componentCategory ?? findingComponentCategory(finding)).toLowerCase())} issue has the same rule, selector, and detected markup on ${affectedPageCount(finding)} tested pages (${findingOccurrenceCount(finding)} total occurrences). Fix the shared component once, then retest every listed page.</p><ul>${[...new Map(finding.occurrences.filter((item) => item.location.url).map((item) => [item.location.url!, item.location])).values()].map((location) => `<li><a href="${escapeHtml(location.url!)}" target="_blank" rel="noopener noreferrer">${escapeHtml(location.pageTitle || location.url!)}</a><span>${escapeHtml(location.url!)}</span></li>`).join("")}</ul></section>`

@@ -26,12 +26,12 @@ Version 0.2 turns scan output into a repeatable accessibility review workflow. A
 - Keep credentials and session data out of saved reports and scan history.
 - Require the local storage-state path again for every authenticated rerun instead of retaining it in history or the dashboard.
 
-### 4. Broader interactive-state coverage — in progress
+### 4. Broader interactive-state coverage — completed
 
 - Add conservative recipes for tabs and dialogs alongside the existing disclosure recipe — completed.
 - Record the interaction type, trigger, and reproduced state with every state-specific finding — completed.
 - Report controls that match a recipe but cannot be safely opened and restored as explicit manual follow-up — completed.
-- Add a conservative carousel recipe only after its activation and restoration rules can avoid automatic, destructive, or nondeterministic behavior.
+- Add a conservative carousel recipe only after its activation and restoration rules can avoid automatic, destructive, or nondeterministic behavior — completed.
 - Continue avoiding form submission, arbitrary links, destructive actions, and nondeterministic interactions.
 
 ### 5. Private 0.2 release

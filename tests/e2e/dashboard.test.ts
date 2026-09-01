@@ -8,6 +8,7 @@ import { startUiServer } from "../../src/ui/server.js";
 
 const fixturePath = new URL("../fixtures/grouped-aria/index.html", import.meta.url);
 const unsafeDialogFixturePath = new URL("../fixtures/unsafe-dialog/index.html", import.meta.url);
+const unsafeCarouselFixturePath = new URL("../fixtures/unsafe-carousel.html", import.meta.url);
 
 async function closeServer(server: Server | undefined): Promise<void> {
   if (!server?.listening) return;
@@ -273,7 +274,7 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#history-list .history-row").count()).resolves.toBe(1);
   });
 
-  it("audits opt-in disclosure, tab, and dialog states and records how to reproduce their findings", async () => {
+  it("audits opt-in disclosure, tab, dialog, and carousel states and records how to reproduce their findings", async () => {
     const fixture = await startFixtureServer();
     fixtureServer = fixture.server;
     historyDirectory = await mkdtemp(join(tmpdir(), "ada-dashboard-interactions-"));
@@ -291,10 +292,10 @@ describe("dashboard reviewer workflow", () => {
 
     const report = await (await page.request.get(`${dashboard.url}/api/report.json`)).json();
     const revealed = report.findings.filter((finding: { ruleId: string; location: { interactionType?: string } }) => finding.ruleId === "button-name" && finding.location.interactionType);
-    expect(report.metadata.interactionStatesScanned).toBe(3);
-    expect(report.metadata.interactionStateCounts).toEqual({ disclosure: 1, tab: 1, dialog: 1 });
+    expect(report.metadata.interactionStatesScanned).toBe(4);
+    expect(report.metadata.interactionStateCounts).toEqual({ disclosure: 1, tab: 1, dialog: 1, carousel: 1 });
     expect(report.metadata.interactionStateFailures).toEqual([]);
-    expect(revealed.map((finding: { location: { interactionType: string } }) => finding.location.interactionType).sort()).toEqual(["dialog", "disclosure", "tab"]);
+    expect(revealed.map((finding: { location: { interactionType: string } }) => finding.location.interactionType).sort()).toEqual(["carousel", "dialog", "disclosure", "tab"]);
     const disclosureFinding = revealed.find((finding: { location: { interactionType: string } }) => finding.location.interactionType === "disclosure");
     expect(disclosureFinding.location).toMatchObject({
       interactionState: "Account actions",
@@ -307,6 +308,12 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Revealed interaction state");
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Disclosure");
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("#account-disclosure");
+    const carouselFinding = revealed.find((finding: { location: { interactionType: string } }) => finding.location.interactionType === "carousel");
+    expect(carouselFinding.location).toMatchObject({
+      interactionState: "Featured services — next slide",
+      interactionTrigger: "#next-slide",
+      interactionType: "carousel",
+    });
   });
 
   it("reports a matched dialog that cannot be safely restored as manual follow-up", async () => {
@@ -326,7 +333,7 @@ describe("dashboard reviewer workflow", () => {
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
 
     const report = await (await page.request.get(`${dashboard.url}/api/report.json`)).json();
-    expect(report.metadata.interactionStateCounts).toEqual({ disclosure: 0, tab: 0, dialog: 1 });
+    expect(report.metadata.interactionStateCounts).toEqual({ disclosure: 0, tab: 0, dialog: 1, carousel: 0 });
     expect(report.metadata.interactionStateFailures).toHaveLength(1);
     expect(report.metadata.interactionStateFailures[0]).toMatchObject({
       type: "dialog",
@@ -335,5 +342,36 @@ describe("dashboard reviewer workflow", () => {
     });
     await expect(page.locator("#incomplete").textContent()).resolves.toContain("Interactive states skipped");
     await expect(page.locator("#incomplete").textContent()).resolves.toContain("#sticky-dialog-trigger");
+  });
+
+  it("leaves a carousel with automatic rotation for manual review", async () => {
+    const fixture = await startFixtureServer(false, unsafeCarouselFixturePath);
+    fixtureServer = fixture.server;
+    historyDirectory = await mkdtemp(join(tmpdir(), "ada-dashboard-unsafe-carousel-"));
+    const dashboard = await startUiServer({ host: "127.0.0.1", port: 0, historyDirectory });
+    uiServer = dashboard.server;
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+
+    await page.goto(dashboard.url);
+    await page.locator("#url").fill(fixture.url);
+    await page.locator("#screenshots").uncheck();
+    await page.locator("#interaction-states").check();
+    await page.getByRole("button", { name: "Scan page" }).click();
+    await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
+
+    const report = await (await page.request.get(`${dashboard.url}/api/report.json`)).json();
+    expect(report.metadata.interactionStatesScanned).toBe(0);
+    expect(report.metadata.interactionStateCounts).toEqual({ disclosure: 0, tab: 0, dialog: 0, carousel: 0 });
+    expect(report.metadata.interactionStateFailures).toEqual([
+      expect.objectContaining({
+        type: "carousel",
+        name: "Latest news — next slide",
+        trigger: "#next-news",
+        reason: expect.stringContaining("automatic-rotation control"),
+      }),
+    ]);
+    await expect(page.locator("#incomplete").textContent()).resolves.toContain("Carousel");
+    await expect(page.locator("#incomplete").textContent()).resolves.toContain("#next-news");
   });
 });

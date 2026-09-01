@@ -89,7 +89,7 @@ addOutputOptions(
     .option("--timeout <milliseconds>", "navigation timeout", (value) => Number.parseInt(value, 10), 30_000)
     .option("--storage-state <file>", "Playwright storage state for an authenticated session")
     .option("--wcag-level <level>", "WCAG 2.2 conformance target: A, AA, or AAA", wcagLevel, "AA")
-    .option("--interaction-states", "audit up to 10 safe disclosure, tab, and dialog states")
+    .option("--interaction-states", "audit up to 10 safe disclosure, tab, dialog, and carousel states")
     .option("--no-screenshots", "do not capture highlighted viewport screenshots"),
 ).action(async (urls: string[], options: OutputOptions & { timeout: number; storageState?: string; screenshots: boolean; wcagLevel: WcagLevel; interactionStates?: boolean }) => {
   await finishScan(
@@ -113,7 +113,7 @@ addOutputOptions(
     .option("--timeout <milliseconds>", "navigation timeout", (value) => Number.parseInt(value, 10), 30_000)
     .option("--storage-state <file>", "Playwright storage state for an authenticated session")
     .option("--wcag-level <level>", "WCAG 2.2 conformance target: A, AA, or AAA", wcagLevel, "AA")
-    .option("--interaction-states", "audit up to 10 safe disclosure, tab, and dialog states per page")
+    .option("--interaction-states", "audit up to 10 safe disclosure, tab, dialog, and carousel states per page")
     .option("--no-screenshots", "do not capture highlighted viewport screenshots"),
 ).action(async (url: string, options: OutputOptions & { maxPages: number; timeout: number; storageState?: string; screenshots: boolean; wcagLevel: WcagLevel; interactionStates?: boolean }) => {
   await finishScan(

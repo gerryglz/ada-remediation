@@ -36,14 +36,14 @@ This is the easiest way to test a website when you have its URL.
 3. Paste a complete website URL, such as `https://www.michiganbusiness.org/`.
 4. Choose the **WCAG 2.2 conformance target**. **Level AA** is the default and the most common organizational target. Higher levels include all available automated checks from the lower levels.
 5. Leave **Capture screenshots** selected if you want visual evidence.
-6. Select **Scan interactive states** to audit up to 10 deterministic disclosure, tab, and dialog states per page. It is opt-in because it activates carefully constrained native buttons on the tested page. Every state-specific finding records whether the scanner opened a disclosure or dialog, or selected a tab, plus the exact trigger selector.
+6. Select **Scan interactive states** to audit up to 10 deterministic disclosure, tab, dialog, and carousel states per page. It is opt-in because it activates carefully constrained native buttons on the tested page. Every state-specific finding records whether the scanner opened a control, selected a tab, or advanced a carousel, plus the exact trigger selector.
 7. For a page that requires login, select **Use authenticated session** and enter the absolute path to a local Playwright storage-state JSON file. See [Testing method 6](#testing-method-6-scan-authenticated-pages) for the secure setup steps. The dashboard uses that path for the current request only; it never saves the path, cookies, tokens, or file contents.
 8. Select **Crawl same-origin pages** only when you want more than the supplied page and are authorized to crawl the site.
 9. Click **Scan page**. The progress bar reports the live phase—opening the page, running axe-core, activating eligible interactive states, collecting evidence and screenshots, or building the report—plus the current page and an estimated percentage. For crawls, the percentage is based on the selected page limit and may finish early when the site has fewer eligible links.
 10. When a scan finishes, the scan controls collapse automatically so the report can use the full browser height. Select **Show scan controls** in the header whenever you want to change the URL, WCAG target, authentication mode, interactive-state, crawl, or screenshot option and run another scan.
 11. Review the selected target, authentication label, severity totals, and **Automated findings**. Select **Hide summary** to collapse the totals and testing notice into a compact bar when you want more vertical space; select **Show summary** to restore them. Finding filters are also collapsed by default so the queue remains usable: select **Show filters** to reveal severity, WCAG level, and review-disposition choices, then **Hide filters** when you are done. On desktop, the finding queue and selected finding scroll independently so you can keep your place in both columns. Use the separate **Impact severity** and **WCAG level** controls together to narrow findings—for example, Serious + AAA. On smaller screens, the queue and details stack into one readable page. The review workspace separates the selected result into clearly labeled sections:
    - **Finding summary** explains priority and detection confidence, shows an **A**, **AA**, or **AAA** badge for the individual rule, labels requirements as **WCAG 2.2 · Section X.X.X**, links each one to its exact W3C Understanding page, and labels Deque separately as axe scanner documentation
-   - **Where it was found** provides clickable source-page links and the affected CSS selector; findings exposed by an interactive recipe also identify the disclosure, tab, or dialog type, state name, and exact trigger selector needed to reproduce it
+   - **Where it was found** provides clickable source-page links and the affected CSS selector; findings exposed by an interactive recipe also identify the disclosure, tab, dialog, or carousel type, state name, and exact trigger selector needed to reproduce it
    - **Visual evidence** shows a compact screenshot thumbnail that opens into a near-full-window view
    - **Why this was flagged** separates the rule purpose from the specific failed check
    - **Recommended fix** starts with axe-core's exact failed condition, then separates **What to inspect** from **What to change**. Rule-specific advice and the affected HTML element are included even when a safe generic patch is not possible
@@ -276,22 +276,23 @@ Every automated finding also receives a compact issue-category badge such as **C
 
 ### Optionally scan deterministic interactive states
 
-The initial rendered page does not expose every menu, accordion, tab panel, or dialog to axe-core. Add `--interaction-states` to a rendered scan, or select **Scan interactive states** in the dashboard, to inspect a deliberately limited set of states:
+The initial rendered page does not expose every menu, accordion, tab panel, dialog, or carousel slide to axe-core. Add `--interaction-states` to a rendered scan, or select **Scan interactive states** in the dashboard, to inspect a deliberately limited set of states:
 
 ```bash
 node dist/cli.js scan-url https://example.com --interaction-states
 node dist/cli.js scan-site https://example.com --max-pages 10 --interaction-states
 ```
 
-This mode activates at most 10 visible, enabled native `<button>` elements per page, in document order. Buttons inside forms must use `type="button"`, every trigger must have a unique selector, and every controlled target must be connected through one valid `aria-controls` ID. Three recipes are supported:
+This mode activates at most 10 visible, enabled native `<button>` elements per page, in document order. Buttons inside forms must use `type="button"`, every trigger must have a unique selector, and every controlled target must be connected through one valid `aria-controls` ID. Four recipes are supported:
 
 - **Disclosure:** the button starts with `aria-expanded="false"`, exposes its controlled target, and can be closed with the same button.
 - **Tab:** an inactive `button[role="tab"]` starts with `aria-selected="false"`, controls a `role="tabpanel"`, and has an active sibling tab the scanner can restore afterward.
 - **Dialog:** a button uses `aria-haspopup="dialog"`, controls a native `<dialog>` or `role="dialog"` target that starts hidden, and the opened dialog closes with Escape.
+- **Carousel:** an explicitly named `role="region"` or `role="group"` with `aria-roledescription="carousel"` has at least two `aria-roledescription="slide"` children, exactly one visible starting slide, and uniquely addressable Next and Previous buttons tied to that carousel. The scanner confirms the slide state is stable, advances once, audits the newly visible slide, returns with Previous, and verifies the complete starting slide state was restored. Carousels with an automatic-rotation control or an ambiguous slide/control structure are left for manual review.
 
 The report counts each recipe separately and labels every newly exposed finding with its interaction type, human-readable state name, and trigger selector. A matching control that cannot be safely opened and restored is listed under **Interactive states skipped** for manual review. The scanner stops trying additional states if an opened dialog cannot be dismissed with Escape.
 
-This is not a general interaction crawler or a complete interaction test. It does not submit forms, activate links, guess at controls without the expected ARIA relationships, advance carousels, exercise validation, test keyboard behavior, or complete multi-step user journeys. Use it only on sites you are authorized to interact with, and follow it with manual keyboard and assistive-technology testing.
+This is not a general interaction crawler or a complete interaction test. It does not submit forms, activate links, guess at controls without the expected ARIA relationships, run auto-rotating or structurally ambiguous carousels, exercise validation, test keyboard behavior, or complete multi-step user journeys. It advances only one eligible carousel state and does not certify its keyboard operation, announcements, timing controls, or overall usability. Use it only on sites you are authorized to interact with, and follow it with manual keyboard and assistive-technology testing.
 
 ## Testing method 6: scan authenticated pages
 

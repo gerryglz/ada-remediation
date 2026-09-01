@@ -200,7 +200,7 @@ export function buildRemediationPrompt(finding: Finding): string {
     location,
     `Affected selector: ${finding.location.selector ?? "Not provided"}`,
     ...(finding.location.interactionState ? [
-      `Revealed ${finding.location.interactionType ?? "interactive"} state: after ${finding.location.interactionType === "tab" ? "selecting" : "opening"} ${finding.location.interactionState}`,
+      `Revealed ${finding.location.interactionType ?? "interactive"} state: after ${finding.location.interactionType === "tab" ? "selecting" : finding.location.interactionType === "carousel" ? "advancing" : "opening"} ${finding.location.interactionState}`,
       `Interaction trigger: ${finding.location.interactionTrigger ?? "Not recorded"}`,
     ] : []),
     `Rendered HTML context: ${renderedContext}`,
@@ -235,7 +235,7 @@ export function buildGroupRemediationPrompt(group: FindingGroup, findings: Findi
     `   Page: ${finding.location.url ?? finding.location.file ?? "Locate in the project"}`,
     `   Selector: ${finding.location.selector ?? "Not provided"}`,
     ...(finding.location.interactionState ? [
-      `   Revealed ${finding.location.interactionType ?? "interactive"} state: after ${finding.location.interactionType === "tab" ? "selecting" : "opening"} ${finding.location.interactionState}`,
+      `   Revealed ${finding.location.interactionType ?? "interactive"} state: after ${finding.location.interactionType === "tab" ? "selecting" : finding.location.interactionType === "carousel" ? "advancing" : "opening"} ${finding.location.interactionState}`,
       `   Interaction trigger: ${finding.location.interactionTrigger ?? "Not recorded"}`,
     ] : []),
     `   Failed condition: ${finding.impact}`,

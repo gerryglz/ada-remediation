@@ -39,6 +39,16 @@
     <dialog id="help-dialog" aria-label="Help dialog">
       <button type="button"><span aria-hidden="true">×</span></button>
     </dialog>
+    <section id="featured-carousel" role="region" aria-roledescription="carousel" aria-label="Featured services">
+      <button id="previous-slide" type="button" aria-controls="featured-carousel">Previous slide</button>
+      <div id="featured-slide-one" role="group" aria-roledescription="slide" aria-label="1 of 2">
+        <p>Featured service one</p>
+      </div>
+      <div id="featured-slide-two" role="group" aria-roledescription="slide" aria-label="2 of 2" hidden>
+        <button type="button"><span aria-hidden="true">×</span></button>
+      </div>
+      <button id="next-slide" type="button" aria-controls="featured-carousel">Next slide</button>
+    </section>
     <p><a href="/downloads/sample-menu.pdf">Download the sample menu (PDF)</a></p>
   </main>
   <script>
@@ -67,6 +77,16 @@
     });
     const helpDialog = document.getElementById("help-dialog");
     document.getElementById("help-dialog-trigger").addEventListener("click", () => helpDialog.showModal());
+    const firstSlide = document.getElementById("featured-slide-one");
+    const secondSlide = document.getElementById("featured-slide-two");
+    document.getElementById("next-slide").addEventListener("click", () => {
+      firstSlide.hidden = true;
+      secondSlide.hidden = false;
+    });
+    document.getElementById("previous-slide").addEventListener("click", () => {
+      firstSlide.hidden = false;
+      secondSlide.hidden = true;
+    });
   </script>
 </body>
 </html>
