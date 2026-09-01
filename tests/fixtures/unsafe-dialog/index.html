@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Unsafe dialog restoration fixture</title>
+</head>
+<body>
+  <main>
+    <h1>Unsafe dialog restoration fixture</h1>
+    <button id="sticky-dialog-trigger" type="button" aria-haspopup="dialog" aria-controls="sticky-dialog">Open sticky dialog</button>
+    <div id="sticky-dialog" role="dialog" aria-label="Sticky dialog" hidden>
+      <p>This intentionally incomplete test dialog does not support Escape.</p>
+    </div>
+  </main>
+  <script>
+    const dialog = document.getElementById("sticky-dialog");
+    document.getElementById("sticky-dialog-trigger").addEventListener("click", () => {
+      dialog.hidden = false;
+    });
+  </script>
+</body>
+</html>

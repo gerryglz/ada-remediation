@@ -12,7 +12,12 @@ describe("reporters", () => {
     result.findings[0].location.pageTitle = "Example problem page";
     result.findings[0].location.interactionState = "Account actions";
     result.findings[0].location.interactionTrigger = "#account-disclosure";
+    result.findings[0].location.interactionType = "disclosure";
     result.metadata.interactionStatesScanned = 1;
+    result.metadata.interactionStatesRequested = true;
+    result.metadata.interactionStateCounts = { disclosure: 1, tab: 0, dialog: 0 };
+    result.metadata.interactionStateFailures = [{ url: "https://example.com/problem", type: "dialog", name: "Account help", trigger: "#help-trigger", reason: "The dialog opened, but Escape did not close it; remaining states were skipped to avoid unsafe interaction." }];
+    result.metadata.skippedAssets = [{ url: "https://example.com/menu.pdf", kind: "pdf", reason: "PDF documents require a dedicated document accessibility review and are outside this HTML website scan." }];
     result.findings[0].helpUrl = "https://dequeuniversity.com/rules/axe/4.13/image-alt";
     result.findings[0].title = "<object> elements must have alternative text";
     result.findings[0].remediationGuidance = {
@@ -43,7 +48,19 @@ describe("reporters", () => {
       scope: "parent",
       truncated: false,
     };
-    const component = { key: "header-menu|primary", category: "Header menu" as const, name: "Primary navigation", selector: 'nav[aria-label="Primary"]' };
+    const component = {
+      key: "header-menu|primary",
+      category: "Header menu" as const,
+      name: "Primary navigation",
+      selector: 'nav[aria-label="Primary"]',
+      remediationTarget: {
+        selector: "ul.primary-menu",
+        html: '<ul class="primary-menu" role="presentation">',
+        currentRole: "presentation",
+        suggestedRoles: ["menu", "menubar", "group"],
+        reason: "Nearest rendered container that directly owns multiple failing menuitem elements.",
+      },
+    };
     result.findings[0].component = component;
     result.findings[1].component = component;
     result.findings[1].remediationGuidance = {
@@ -73,18 +90,21 @@ describe("reporters", () => {
       notes: "Manual review is in progress.",
     };
     expect(terminalReport(result)).toContain("Conformance target: WCAG 2.2 Level AAA");
-    expect(terminalReport(result)).toContain("Scan profile: Single page; screenshots on; disclosure states on; authenticated session");
+    expect(terminalReport(result)).toContain("Scan profile: Single page; screenshots on; interactive states on; authenticated session");
     expect(terminalReport(result)).toContain("Automated results cannot certify");
     expect(terminalReport(result)).toContain("Recurring Navigation menu: 2 pages / 2 occurrences");
     expect(terminalReport(result)).toContain("Finding groups:");
-    expect(terminalReport(result)).toContain("Component — Primary navigation: 2 findings");
-    expect(terminalReport(result)).toContain("Disclosure states opened: 1");
+    expect(terminalReport(result)).toContain("Component — Primary navigation: 2 issue set(s) / 2 affected elements");
+    expect(terminalReport(result)).toContain("Interactive states opened: 1 state(s): 1 disclosure, 0 tab, 0 dialog");
+    expect(terminalReport(result)).toContain("Interactive states skipped: 1");
+    expect(terminalReport(result)).toContain("Non-HTML assets skipped: 1");
+    expect(terminalReport(result)).toContain("https://example.com/menu.pdf");
     expect(terminalReport(result)).toContain("after opening Account actions");
     expect(terminalReport(result)).toContain("Review: Action required — Update the shared navigation component.");
     const html = htmlReport(result);
     expect(html).toContain("Findings in context");
     expect(html).toContain("Conformance target:</strong> WCAG 2.2 Level AAA");
-    expect(html).toContain("Saved scan profile:</strong> Single page; screenshots on; disclosure states on; authenticated session");
+    expect(html).toContain("Saved scan profile:</strong> Single page; screenshots on; interactive states on; authenticated session");
     expect(html).toContain("Example problem page");
     expect(html).toContain("data:image/jpeg;base64,ZmFrZQ==");
     expect(html).toContain("Rendered HTML context");
@@ -98,8 +118,13 @@ describe("reporters", () => {
     expect(html).toContain("Finding summary");
     expect(html).toContain("Where it was found");
     expect(html).toContain("Revealed interaction state");
+    expect(html).toContain("Disclosure · Account actions");
     expect(html).toContain("#account-disclosure");
     expect(html).toContain("States opened");
+    expect(html).toContain("States skipped");
+    expect(html).toContain("Interactive states skipped");
+    expect(html).toContain("Skipped non-HTML assets · 1");
+    expect(html).toContain("https://example.com/menu.pdf");
     expect(html).toContain("Navigation menu</span>");
     expect(html).toContain(".component-badge{border:1px solid var(--accent-orange)");
     expect(html).toContain("2 PAGES");
@@ -108,7 +133,9 @@ describe("reporters", () => {
     expect(html).toContain("Components and issue patterns");
     expect(html).toContain("Primary navigation");
     expect(html).toContain("Corrections shared by multiple findings");
-    expect(html).toContain("Child findings");
+    expect(html).toContain("Issue sets and affected elements");
+    expect(html).toContain("Likely shared owner");
+    expect(html).toContain("ul.primary-menu");
     expect(html).toContain("APPLIES TO 2");
     expect(html).toContain("Second affected page");
     expect(html).toContain("2 total occurrences");
@@ -241,6 +268,11 @@ describe("reporters", () => {
     expect(html).toContain("enhanceCommonFinding");
     expect(html).toContain("renderGroupDetail");
     expect(html).toContain("componentGroupNav");
+    expect(html).toContain("issueSetsFor");
+    expect(html).toContain("issueSetCard");
+    expect(html).toContain("Shared cause and parent-level correction");
+    expect(html).toContain("Affected child elements");
+    expect(html).toContain("do not add a role to a broad wrapper only to silence the scanner");
     expect(html).toContain("groupChildDetail");
     expect(html).toContain("sidebar-components");
     expect(html).toContain("Individual findings");
@@ -274,12 +306,18 @@ describe("reporters", () => {
     expect(html).toContain("Download HTML report");
     expect(html).toContain("Capture screenshots");
     expect(html).toContain('id="interaction-states"');
-    expect(html).toContain("Scan disclosure states");
+    expect(html).toContain("Scan interactive states");
+    expect(html).toContain("interactionTypeLabel");
+    expect(html).toContain("States skipped");
     expect(html).toContain("WCAG 2.2 conformance target");
     expect(html).toContain("Level A — essential");
     expect(html).toContain("Level AA — common target");
     expect(html).toContain("Level AAA — enhanced");
     expect(html).toContain('id="level-filters"');
+    expect(html).toContain('id="filter-toggle"');
+    expect(html).toContain('aria-controls="filter-groups manual-status-filters"');
+    expect(html).toContain("Skipped non-HTML assets");
+    expect(html).toContain("syncFilterVisibility");
     expect(html).toContain("All levels");
     expect(html).toContain("activeLevel='all'");
     expect(html).toContain("f.wcagLevel===activeLevel");

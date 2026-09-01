@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
-import { LEGAL_NOTICE, type ContrastEvidence, type Finding, type FindingComponent, type RenderedHtmlContext, type ScanResult, type Severity, type VisualEvidence, type WcagLevel } from "../types.js";
+import { LEGAL_NOTICE, type ContrastEvidence, type Finding, type FindingComponent, type InteractionStateFailure, type InteractionStateType, type RenderedHtmlContext, type ScanResult, type Severity, type SkippedAsset, type SkippedAssetKind, type VisualEvidence, type WcagLevel } from "../types.js";
 import { fingerprintFinding, TOOL_VERSION } from "../utils.js";
 import { buildCodeSuggestion } from "../suggestions.js";
 import { axeTagsForWcagLevel, DEFAULT_WCAG_LEVEL, wcagLevelFromTags } from "../wcag.js";
@@ -12,6 +12,35 @@ import { formatHtmlSnippet } from "../html.js";
 
 const require = createRequire(import.meta.url);
 const axePath = require.resolve("axe-core/axe.min.js");
+
+const skippedAssetExtensions: Record<SkippedAssetKind, ReadonlySet<string>> = {
+  pdf: new Set([".pdf"]),
+  image: new Set([".avif", ".bmp", ".gif", ".ico", ".jpeg", ".jpg", ".png", ".svg", ".tif", ".tiff", ".webp"]),
+  audio: new Set([".aac", ".flac", ".m4a", ".mp3", ".oga", ".ogg", ".wav"]),
+  video: new Set([".avi", ".m4v", ".mov", ".mp4", ".mpeg", ".mpg", ".ogv", ".webm"]),
+  download: new Set([".7z", ".doc", ".docx", ".ppt", ".pptx", ".rar", ".tar", ".xls", ".xlsx", ".zip"]),
+};
+
+const skippedAssetReasons: Record<SkippedAssetKind, string> = {
+  pdf: "PDF documents require a dedicated document accessibility review and are outside this HTML website scan.",
+  image: "Image assets are evaluated through the HTML page that uses them, not by navigating to the image file directly.",
+  audio: "Audio assets require a media-specific review for alternatives such as transcripts and are outside this HTML website scan.",
+  video: "Video assets require a media-specific review for captions, transcripts, and audio description and are outside this HTML website scan.",
+  download: "Downloadable files require a format-specific accessibility review and are outside this HTML website scan.",
+};
+
+export function classifySkippedAssetUrl(value: string): SkippedAsset | undefined {
+  let pathname: string;
+  try {
+    pathname = new URL(value).pathname.toLowerCase().replace(/\/+$/, "");
+  } catch {
+    return undefined;
+  }
+  const extension = pathname.match(/(\.[a-z0-9]+)$/)?.[1];
+  if (!extension) return undefined;
+  const kind = (Object.entries(skippedAssetExtensions) as Array<[SkippedAssetKind, ReadonlySet<string>]>).find(([, extensions]) => extensions.has(extension))?.[0];
+  return kind ? { url: value, kind, reason: skippedAssetReasons[kind] } : undefined;
+}
 
 interface AxeNode {
   html: string;
@@ -29,6 +58,14 @@ interface AxeViolation {
   description: string;
   helpUrl: string;
   nodes: AxeNode[];
+}
+
+interface InteractionCandidate {
+  type: InteractionStateType;
+  selector: string;
+  targetSelector: string;
+  name: string;
+  restoreSelector?: string;
 }
 
 class PageAuditError extends Error {
@@ -176,7 +213,7 @@ async function scanPage(
   axeTags: string[],
   interactionStateLimit: number,
   reportStage: (fraction: number, phase: UrlScanProgress["phase"], message: string) => void,
-): Promise<{ findings: Finding[]; links: string[]; interactionStatesScanned: number }> {
+): Promise<{ findings: Finding[]; links: string[]; interactionStatesScanned: number; interactionStateCounts: Record<InteractionStateType, number>; interactionStateFailures: InteractionStateFailure[] }> {
   await navigateForAccessibilityScan(page, url, timeout, (attempt, maximumAttempts) => {
     reportStage(0.05, "loading", `Opening ${url}${attempt > 1 ? ` — retry ${attempt} of ${maximumAttempts}` : ""}`);
   });
@@ -203,7 +240,7 @@ async function scanPage(
         }
         return element;
       };
-      const componentFor = (selectorParts: string[]): FindingComponent | undefined => {
+      const componentFor = (selectorParts: string[], ruleId: string): FindingComponent | undefined => {
         const element = elementFor(selectorParts);
         if (!element) return undefined;
         const menu = element.closest('nav,[role="navigation"],[role="menu"],[role="menubar"]');
@@ -222,20 +259,61 @@ async function scanPage(
               : tag === "form"
                 ? "Form"
                 : "Table";
+        const selectorFor = (candidate: Element): string => {
+          const candidateTag = candidate.tagName.toLowerCase();
+          const candidateLabel = candidate.getAttribute("aria-label")?.trim();
+          const candidateId = candidate.id.trim();
+          const candidateClasses = [...candidate.classList].filter((value) => !/^(active|open|show|selected|focus|hover|js-)$/i.test(value)).slice(0, 2);
+          if (candidateId) return `#${candidateId}`;
+          if (candidateLabel) return `${candidateTag}[aria-label="${candidateLabel}"]`;
+          if (candidateClasses.length) return `${candidateTag}${candidateClasses.map((value) => `.${value}`).join("")}`;
+          const parent = candidate.parentElement;
+          if (!parent) return candidateTag;
+          const sameTagSiblings = [...parent.children].filter((sibling) => sibling.tagName === candidate.tagName);
+          const position = sameTagSiblings.indexOf(candidate) + 1;
+          const parentClass = [...parent.classList].find((value) => !/^(active|open|show|selected|focus|hover|js-)$/i.test(value));
+          const parentSelector = parent.id ? `#${parent.id}` : `${parent.tagName.toLowerCase()}${parentClass ? `.${parentClass}` : ""}`;
+          return `${parentSelector} > ${candidateTag}${sameTagSiblings.length > 1 ? `:nth-of-type(${position})` : ""}`;
+        };
         const label = region.getAttribute("aria-label")?.trim();
         const id = region.id.trim();
         const stableClasses = [...region.classList].filter((value) => !/^(active|open|show|selected|focus|hover|js-)$/i.test(value)).slice(0, 2);
-        const selector = id
-          ? `#${id}`
-          : label
-            ? `${tag}[aria-label="${label}"]`
-            : `${tag}${stableClasses.map((value) => `.${value}`).join("")}`;
+        const selector = selectorFor(region);
         const name = label || (category === "Header menu" ? "Header menu" : category);
+        let remediationTarget: FindingComponent["remediationTarget"];
+        if (ruleId === "aria-required-parent" && isMenuItem) {
+          let candidate = element.parentElement;
+          let owner: Element | null = null;
+          while (candidate && candidate !== region.parentElement) {
+            const ownedMenuItems = candidate.querySelectorAll(':scope > [role="menuitem"], :scope > li > [role="menuitem"], :scope > [role="presentation"] > [role="menuitem"]');
+            if (ownedMenuItems.length > 1) {
+              owner = candidate;
+              break;
+            }
+            candidate = candidate.parentElement;
+          }
+          const target = owner ?? element.parentElement;
+          if (target) {
+            const outerHtml = target.outerHTML;
+            const openingTag = outerHtml.match(/^<[^>]+>/)?.[0] ?? outerHtml.slice(0, 500);
+            const currentRole = target.getAttribute("role")?.trim();
+            remediationTarget = {
+              selector: selectorFor(target),
+              html: openingTag,
+              ...(currentRole ? { currentRole } : {}),
+              suggestedRoles: ["menu", "menubar", "group"],
+              reason: owner
+                ? "Nearest rendered container that directly owns multiple failing menuitem elements."
+                : "Nearest rendered parent of the failing menuitem; confirm the shared owner in maintained source.",
+            };
+          }
+        }
         return {
           key: [category, tag, label ?? "", id, ...stableClasses].join("|").toLowerCase(),
           category,
           name,
           selector,
+          ...(remediationTarget ? { remediationTarget } : {}),
         };
       };
       const renderedHtmlContextFor = (selectorParts: string[], detectedHtml: string): RenderedHtmlContext => {
@@ -253,7 +331,7 @@ async function scanPage(
         ...violation,
         nodes: violation.nodes.map((node) => ({
           ...node,
-          component: componentFor(node.target),
+          component: componentFor(node.target, violation.id),
           renderedHtmlContext: renderedHtmlContextFor(node.target, node.html),
         })),
       }));
@@ -265,9 +343,11 @@ async function scanPage(
     const findings: Finding[] = [];
     const seenFingerprints = new Set<string>();
     let interactionStatesScanned = 0;
+    const interactionStateCounts: Record<InteractionStateType, number> = { disclosure: 0, tab: 0, dialog: 0 };
+    const interactionStateFailures: InteractionStateFailure[] = [];
     const collectFindings = async (
       auditResult: { violations: AxeViolation[]; pageTitle: string },
-      interaction?: { name: string; selector: string },
+      interaction?: { name: string; selector: string; type: InteractionStateType },
     ): Promise<void> => {
       const totalNodes = auditResult.violations.reduce((total, violation) => total + violation.nodes.length, 0);
       let processedNodes = 0;
@@ -281,6 +361,7 @@ async function scanPage(
           if (interaction) {
             finding.location.interactionState = interaction.name;
             finding.location.interactionTrigger = interaction.selector;
+            finding.location.interactionType = interaction.type;
           }
           if (["color-contrast", "color-contrast-enhanced"].includes(finding.ruleId)) {
             finding.contrast = await captureContrastEvidence(page, finding.location.selector!, node.failureSummary);
@@ -310,46 +391,100 @@ async function scanPage(
 
     await collectFindings(result);
     if (interactionStateLimit > 0) {
-      const disclosures = await page.evaluate((limit) => {
+      const interactions = await page.evaluate((limit): InteractionCandidate[] => {
         const visible = (element: HTMLElement): boolean => Boolean(element.getClientRects().length) && getComputedStyle(element).visibility !== "hidden";
-        return [...document.querySelectorAll<HTMLButtonElement>('button[aria-expanded="false"][aria-controls]')]
-          .filter((button) => !button.disabled && visible(button) && (!button.form || button.type === "button"))
-          .flatMap((button) => {
-            const controls = button.getAttribute("aria-controls")?.trim() ?? "";
-            if (!controls || /\s/.test(controls) || !document.getElementById(controls)) return [];
-            const selector = button.id
-              ? `#${CSS.escape(button.id)}`
-              : `button[aria-controls="${CSS.escape(controls)}"]`;
-            if (document.querySelectorAll(selector).length !== 1) return [];
-            const name = button.getAttribute("aria-label")?.trim() || button.textContent?.replace(/\s+/g, " ").trim() || button.title.trim() || `Disclosure for #${controls}`;
-            return [{ selector, controls, targetSelector: `#${CSS.escape(controls)}`, name }];
-          })
-          .slice(0, limit);
+        const selectorFor = (button: HTMLButtonElement, fallback: string): string | undefined => {
+          const selector = button.id ? `#${CSS.escape(button.id)}` : fallback;
+          return document.querySelectorAll(selector).length === 1 ? selector : undefined;
+        };
+        const nameFor = (button: HTMLButtonElement, fallback: string): string => button.getAttribute("aria-label")?.trim()
+          || button.textContent?.replace(/\s+/g, " ").trim()
+          || button.title.trim()
+          || fallback;
+        return [...document.querySelectorAll<HTMLButtonElement>("button")].flatMap((button): InteractionCandidate[] => {
+          if (button.disabled || button.getAttribute("aria-disabled") === "true" || !visible(button) || (button.form && button.type !== "button")) return [];
+          const controls = button.getAttribute("aria-controls")?.trim() ?? "";
+          if (!controls || /\s/.test(controls)) return [];
+          const target = document.getElementById(controls);
+          if (!target) return [];
+          const targetSelector = `#${CSS.escape(controls)}`;
+          if (button.getAttribute("role")?.toLowerCase() === "tab") {
+            if (button.getAttribute("aria-selected") !== "false" || target.getAttribute("role")?.toLowerCase() !== "tabpanel" || visible(target)) return [];
+            const tablist = button.closest('[role="tablist"]');
+            const selected = tablist?.querySelector<HTMLButtonElement>('button[role="tab"][aria-selected="true"][aria-controls]');
+            if (!selected || selected.disabled || selected.getAttribute("aria-disabled") === "true" || !visible(selected) || (selected.form && selected.type !== "button")) return [];
+            const selectedControls = selected.getAttribute("aria-controls")?.trim() ?? "";
+            const selector = selectorFor(button, `button[role="tab"][aria-controls="${CSS.escape(controls)}"]`);
+            const restoreSelector = selectedControls && !/\s/.test(selectedControls)
+              ? selectorFor(selected, `button[role="tab"][aria-controls="${CSS.escape(selectedControls)}"]`)
+              : undefined;
+            if (!selector || !restoreSelector) return [];
+            return [{ type: "tab", selector, targetSelector, restoreSelector, name: nameFor(button, `Tab for #${controls}`) }];
+          }
+          if (button.getAttribute("aria-haspopup")?.toLowerCase() === "dialog") {
+            if (!target.matches('dialog,[role="dialog"]') || visible(target)) return [];
+            const selector = selectorFor(button, `button[aria-haspopup="dialog"][aria-controls="${CSS.escape(controls)}"]`);
+            if (!selector) return [];
+            return [{ type: "dialog", selector, targetSelector, name: nameFor(button, `Dialog for #${controls}`) }];
+          }
+          if (button.getAttribute("aria-expanded") !== "false" || visible(target)) return [];
+          const selector = selectorFor(button, `button[aria-controls="${CSS.escape(controls)}"]`);
+          if (!selector) return [];
+          return [{ type: "disclosure", selector, targetSelector, name: nameFor(button, `Disclosure for #${controls}`) }];
+        }).slice(0, limit);
       }, interactionStateLimit);
 
-      for (const disclosure of disclosures) {
-        const trigger = page.locator(disclosure.selector).first();
+      for (const interaction of interactions) {
+        const trigger = page.locator(interaction.selector).first();
+        const target = page.locator(interaction.targetSelector).first();
+        const restoreInteraction = async (): Promise<boolean> => {
+          if (interaction.type === "disclosure") {
+            if (await trigger.getAttribute("aria-expanded") === "true") await trigger.click({ timeout: 2_000, noWaitAfter: true });
+          } else if (interaction.type === "tab" && interaction.restoreSelector) {
+            await page.locator(interaction.restoreSelector).first().click({ timeout: 2_000, noWaitAfter: true });
+          } else if (interaction.type === "dialog" && await target.isVisible().catch(() => false)) {
+            await page.keyboard.press("Escape");
+          }
+          await page.waitForTimeout(150);
+          if (await target.isVisible().catch(() => false)) return false;
+          if (interaction.type === "disclosure") return await trigger.getAttribute("aria-expanded") !== "true";
+          if (interaction.type === "tab" && interaction.restoreSelector) return await page.locator(interaction.restoreSelector).first().getAttribute("aria-selected") === "true";
+          return true;
+        };
         try {
-          reportStage(0.5, "analyzing", `Opening “${disclosure.name}” and auditing its revealed state.`);
+          const action = interaction.type === "tab" ? "Selecting" : "Opening";
+          reportStage(0.5, "analyzing", `${action} ${interaction.type} “${interaction.name}” and auditing its state.`);
           await trigger.click({ timeout: Math.min(3_000, timeout), noWaitAfter: true });
           await page.waitForTimeout(250);
-          const opened = await trigger.getAttribute("aria-expanded") === "true"
-            && await page.locator(disclosure.targetSelector).first().isVisible().catch(() => false);
-          if (!opened) continue;
+          const targetVisible = await target.isVisible().catch(() => false);
+          const opened = interaction.type === "disclosure"
+            ? await trigger.getAttribute("aria-expanded") === "true" && targetVisible
+            : interaction.type === "tab"
+              ? await trigger.getAttribute("aria-selected") === "true" && targetVisible
+              : targetVisible;
+          if (!opened) {
+            const restored = await restoreInteraction().catch(() => false);
+            interactionStateFailures.push({ url, type: interaction.type, name: interaction.name, trigger: interaction.selector, reason: restored ? "The trigger did not expose its expected controlled state." : "The trigger did not expose the expected state and could not be safely restored; remaining states were skipped." });
+            if (!restored) break;
+            continue;
+          }
           interactionStatesScanned += 1;
-          await collectFindings(await auditDocument(), { name: disclosure.name, selector: disclosure.selector });
-          if (await trigger.getAttribute("aria-expanded") === "true") {
-            await trigger.click({ timeout: 2_000, noWaitAfter: true }).catch(() => undefined);
-            await page.waitForTimeout(100);
+          interactionStateCounts[interaction.type] += 1;
+          await collectFindings(await auditDocument(), { name: interaction.name, selector: interaction.selector, type: interaction.type });
+          if (!await restoreInteraction()) {
+            interactionStateFailures.push({ url, type: interaction.type, name: interaction.name, trigger: interaction.selector, reason: `The ${interaction.type} state was audited but could not be safely restored; remaining states were skipped.` });
+            break;
           }
         } catch {
-          // A disclosure that cannot be opened safely is skipped without failing the page scan.
+          const restored = await restoreInteraction().catch(() => false);
+          interactionStateFailures.push({ url, type: interaction.type, name: interaction.name, trigger: interaction.selector, reason: restored ? "The control could not be activated within the safe interaction limits." : "The control could not be activated or safely restored; remaining states were skipped." });
+          if (!restored) break;
         }
       }
     }
 
     reportStage(1, "scanning", `Finished ${url}`);
-    return { findings, links: result.links, interactionStatesScanned };
+    return { findings, links: result.links, interactionStatesScanned, interactionStateCounts, interactionStateFailures };
   } catch (error) {
     throw new PageAuditError(error);
   }
@@ -389,8 +524,21 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
   const incomplete: Array<{ url: string; reason: string; stage?: "navigation" | "audit"; attempts?: number }> = [];
   const screenshotBudget = { remaining: options.screenshotLimit ?? 50 };
   let interactionStatesScanned = 0;
-  const queued = targets.map((target) => new URL(target).href);
-  const allowedOrigins = new Set(queued.map((target) => new URL(target).origin));
+  const interactionStateCounts: Record<InteractionStateType, number> = { disclosure: 0, tab: 0, dialog: 0 };
+  const interactionStateFailures: InteractionStateFailure[] = [];
+  const skippedAssets = new Map<string, SkippedAsset>();
+  const normalizedTargets = targets.map((target) => new URL(target).href);
+  const queued: string[] = [];
+  const enqueued = new Set<string>();
+  for (const target of normalizedTargets) {
+    const skippedAsset = classifySkippedAssetUrl(target);
+    if (skippedAsset) skippedAssets.set(target, skippedAsset);
+    else {
+      queued.push(target);
+      enqueued.add(target);
+    }
+  }
+  const allowedOrigins = new Set(normalizedTargets.map((target) => new URL(target).origin));
   const visited = new Set<string>();
   const totalPages = Math.max(1, maxPages);
   let reportedPercent = 0;
@@ -434,13 +582,21 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
         const pageResult = await scanPage(page, url, timeout, options.captureScreenshots ?? true, screenshotBudget, axeTags, options.interactionStateLimit ?? 0, reportStage);
         findings.push(...pageResult.findings);
         interactionStatesScanned += pageResult.interactionStatesScanned;
+        for (const type of ["disclosure", "tab", "dialog"] as const) interactionStateCounts[type] += pageResult.interactionStateCounts[type];
+        interactionStateFailures.push(...pageResult.interactionStateFailures);
         if (options.crawl) {
           for (const href of pageResult.links) {
             try {
               const candidate = new URL(href);
               candidate.hash = "";
-              if (["http:", "https:"].includes(candidate.protocol) && allowedOrigins.has(candidate.origin) && !visited.has(candidate.href)) {
+              const skippedAsset = classifySkippedAssetUrl(candidate.href);
+              if (skippedAsset && allowedOrigins.has(candidate.origin)) {
+                skippedAssets.set(candidate.href, skippedAsset);
+                continue;
+              }
+              if (["http:", "https:"].includes(candidate.protocol) && allowedOrigins.has(candidate.origin) && !visited.has(candidate.href) && !enqueued.has(candidate.href)) {
                 queued.push(candidate.href);
+                enqueued.add(candidate.href);
               }
             } catch {
               // Ignore malformed or non-URL href values.
@@ -491,6 +647,9 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
       commonFindings: consolidatedFindings.filter((finding) => finding.scope === "common").length,
       interactionStatesScanned,
       interactionStatesRequested: (options.interactionStateLimit ?? 0) > 0,
+      interactionStateCounts,
+      interactionStateFailures,
+      skippedAssets: [...skippedAssets.values()],
       wcagLevel,
       profile: {
         target: targets.join(", "),

@@ -2,6 +2,15 @@ export type Severity = "critical" | "serious" | "moderate" | "minor";
 export type Confidence = "high" | "medium" | "low";
 export type FindingKind = "automatic" | "manual-review";
 export type WcagLevel = "A" | "AA" | "AAA";
+export type InteractionStateType = "disclosure" | "tab" | "dialog";
+
+export interface InteractionStateFailure {
+  url: string;
+  type: InteractionStateType;
+  name: string;
+  trigger: string;
+  reason: string;
+}
 
 export interface SourceLocation {
   file?: string;
@@ -12,6 +21,7 @@ export interface SourceLocation {
   selector?: string;
   interactionState?: string;
   interactionTrigger?: string;
+  interactionType?: InteractionStateType;
 }
 
 export interface FindingOccurrence {
@@ -35,6 +45,15 @@ export interface FindingComponent {
   category: FindingComponentCategory;
   name: string;
   selector?: string;
+  remediationTarget?: FindingRemediationTarget;
+}
+
+export interface FindingRemediationTarget {
+  selector: string;
+  html: string;
+  currentRole?: string;
+  suggestedRoles: string[];
+  reason: string;
 }
 
 export interface SharedCorrection {
@@ -49,10 +68,24 @@ export interface FindingGroup {
   name: string;
   category: FindingComponentCategory | FindingIssueCategory;
   selector?: string;
+  remediationTarget?: FindingRemediationTarget;
   findingFingerprints: string[];
   pages: string[];
   sharedCorrections: SharedCorrection[];
+  issueClusters?: FindingIssueCluster[];
   remediationPrompt?: string;
+}
+
+export interface FindingIssueCluster {
+  id: string;
+  name: string;
+  ruleId: string;
+  failedCondition: string;
+  recommendedAction: string;
+  findingFingerprints: string[];
+  pages: string[];
+  remediationTarget?: FindingRemediationTarget;
+  parentResolution?: string;
 }
 
 export interface VisualEvidence {
@@ -178,6 +211,14 @@ export type FindingIssueCategory =
   | "Navigation"
   | "Structure";
 
+export type SkippedAssetKind = "pdf" | "image" | "audio" | "video" | "download";
+
+export interface SkippedAsset {
+  url: string;
+  kind: SkippedAssetKind;
+  reason: string;
+}
+
 export interface ScanMetadata {
   scanner: "repository" | "url" | "site";
   target: string;
@@ -189,6 +230,9 @@ export interface ScanMetadata {
   commonFindings?: number;
   interactionStatesScanned?: number;
   interactionStatesRequested?: boolean;
+  interactionStateCounts?: Partial<Record<InteractionStateType, number>>;
+  interactionStateFailures?: InteractionStateFailure[];
+  skippedAssets?: SkippedAsset[];
   wcagLevel?: WcagLevel;
   profile?: ScanProfile;
   incomplete?: Array<{ url: string; reason: string; stage?: "navigation" | "audit"; attempts?: number }>;

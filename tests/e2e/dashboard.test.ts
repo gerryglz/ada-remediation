@@ -7,6 +7,7 @@ import { chromium, type Browser } from "playwright";
 import { startUiServer } from "../../src/ui/server.js";
 
 const fixturePath = new URL("../fixtures/grouped-aria/index.html", import.meta.url);
+const unsafeDialogFixturePath = new URL("../fixtures/unsafe-dialog/index.html", import.meta.url);
 
 async function closeServer(server: Server | undefined): Promise<void> {
   if (!server?.listening) return;
@@ -15,8 +16,8 @@ async function closeServer(server: Server | undefined): Promise<void> {
   });
 }
 
-async function startFixtureServer(requireAuthentication = false): Promise<{ server: Server; url: string }> {
-  const html = await readFile(fixturePath, "utf8");
+async function startFixtureServer(requireAuthentication = false, sourcePath = fixturePath): Promise<{ server: Server; url: string }> {
+  const html = await readFile(sourcePath, "utf8");
   const server = createServer((request, response) => {
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     const authenticated = request.headers.cookie?.split(";").some((cookie) => cookie.trim() === "ada-auth=session-token-93a761") ?? false;
@@ -90,6 +91,22 @@ describe("dashboard reviewer workflow", () => {
     expect(report.findings.length).toBeGreaterThan(0);
     expect(report.findings[0].renderedHtmlContext.html).toContain("\n");
     await expect(page.locator(".new-metric strong").textContent()).resolves.toBe(String(report.findings.length));
+    const menuFindings = report.findings.filter((finding: { ruleId: string; component?: { name?: string } }) => finding.ruleId === "aria-required-parent" && finding.component?.name === "Primary navigation");
+    expect(menuFindings).toHaveLength(2);
+    expect(menuFindings[0].component.remediationTarget).toMatchObject({ selector: "ul.primary-menu", currentRole: "presentation" });
+    const menuGroup = report.findingGroups.find((group: { name: string }) => group.name === "Primary navigation");
+    const parentIssue = menuGroup.issueClusters.find((cluster: { ruleId: string }) => cluster.ruleId === "aria-required-parent");
+    expect(parentIssue.findingFingerprints).toHaveLength(2);
+    await page.locator(".component-group-nav").filter({ hasText: "Primary navigation" }).click();
+    const parentIssueCard = page.locator("#finding-detail .issue-set-card").filter({ hasText: "Menu items share one missing required parent" });
+    await expect(parentIssueCard.count()).resolves.toBe(1);
+    await parentIssueCard.locator(".issue-set-summary").click();
+    await expect(parentIssueCard.locator(".issue-element-row").count()).resolves.toBe(2);
+    await expect(parentIssueCard.locator(".issue-owner-card").textContent()).resolves.toContain("ul.primary-menu");
+    await expect(parentIssueCard.locator(".issue-owner-card").textContent()).resolves.toContain("Current role");
+    await expect(page.locator("#filter-groups").isHidden()).resolves.toBe(true);
+    await page.getByRole("button", { name: "Show filters" }).click();
+    await expect(page.locator("#filter-groups").isVisible()).resolves.toBe(true);
 
     const selectedReviewFingerprints = report.findingGroups?.find((group: { findingFingerprints: string[] }) => group.findingFingerprints.length > 1)?.findingFingerprints
       ?? [report.findings[0].fingerprint];
@@ -112,6 +129,7 @@ describe("dashboard reviewer workflow", () => {
 
     await page.getByRole("button", { name: "Manual review" }).click();
     await expect(page.locator("#queue-heading").textContent()).resolves.toBe("Manual review");
+    await expect(page.locator("#manual-status-filters").isVisible()).resolves.toBe(true);
     await expect(page.locator("#finding-list .manual-nav").count()).resolves.toBeGreaterThan(0);
     await page.locator("#finding-detail").getByRole("button", { name: "Pass", exact: true }).click();
     await page.locator("#save-state").getByText("Saved locally").waitFor();
@@ -137,7 +155,7 @@ describe("dashboard reviewer workflow", () => {
 
     await page.getByRole("button", { name: "Scan history" }).click();
     await page.locator("#history-list .history-row").first().waitFor();
-    await expect(page.locator("#history-list .history-row").first().textContent()).resolves.toContain("WCAG AA · Single page · screenshots off · disclosure states off · public");
+    await expect(page.locator("#history-list .history-row").first().textContent()).resolves.toContain("WCAG AA · Single page · screenshots off · interactive states off · public");
     await page.locator("#history-list .history-row").first().getByRole("button", { name: /Run this saved profile again/ }).click();
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
     await expect(page.locator(".new-metric strong").textContent()).resolves.toBe("0");
@@ -158,6 +176,39 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#finding-detail textarea").inputValue()).resolves.toBe("Keyboard access and focus order verified with NVDA.");
     await expect(page.locator("#run-notes").inputValue()).resolves.toBe("Keyboard review assigned to the accessibility team.");
     expect(consoleErrors).toEqual([]);
+  });
+
+  it("skips PDFs discovered by a same-origin crawl without reporting an incomplete page", async () => {
+    const fixture = await startFixtureServer();
+    fixtureServer = fixture.server;
+    historyDirectory = await mkdtemp(join(tmpdir(), "ada-dashboard-assets-"));
+    const dashboard = await startUiServer({ host: "127.0.0.1", port: 0, historyDirectory });
+    uiServer = dashboard.server;
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+
+    await page.goto(dashboard.url);
+    await page.locator("#url").fill(fixture.url);
+    await page.locator("#crawl").check();
+    await page.locator("#max-pages").fill("3");
+    await page.locator("#screenshots").uncheck();
+    await page.getByRole("button", { name: "Scan page" }).click();
+    await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
+
+    const report = await (await page.request.get(`${dashboard.url}/api/report.json`)).json();
+    expect(report.metadata.pagesOrFilesScanned).toBe(1);
+    expect(report.metadata.incomplete).toEqual([]);
+    expect(report.metadata.skippedAssets).toEqual([
+      expect.objectContaining({
+        url: new URL("/downloads/sample-menu.pdf", fixture.url).href,
+        kind: "pdf",
+      }),
+    ]);
+    const skippedAssets = page.locator("#incomplete .skipped-assets");
+    await expect(skippedAssets.locator("summary").textContent()).resolves.toContain("Skipped non-HTML assets · 1");
+    await expect(skippedAssets.getAttribute("open")).resolves.toBeNull();
+    await skippedAssets.locator("summary").click();
+    await expect(skippedAssets.textContent()).resolves.toContain("dedicated document accessibility review");
   });
 
   it("uses a local storage state without persisting its path or session contents", async () => {
@@ -222,7 +273,7 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#history-list .history-row").count()).resolves.toBe(1);
   });
 
-  it("audits opt-in disclosure states and records how to reproduce a revealed finding", async () => {
+  it("audits opt-in disclosure, tab, and dialog states and records how to reproduce their findings", async () => {
     const fixture = await startFixtureServer();
     fixtureServer = fixture.server;
     historyDirectory = await mkdtemp(join(tmpdir(), "ada-dashboard-interactions-"));
@@ -239,15 +290,50 @@ describe("dashboard reviewer workflow", () => {
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
 
     const report = await (await page.request.get(`${dashboard.url}/api/report.json`)).json();
-    const revealed = report.findings.find((finding: { ruleId: string }) => finding.ruleId === "button-name");
-    expect(report.metadata.interactionStatesScanned).toBe(1);
-    expect(revealed.location).toMatchObject({
+    const revealed = report.findings.filter((finding: { ruleId: string; location: { interactionType?: string } }) => finding.ruleId === "button-name" && finding.location.interactionType);
+    expect(report.metadata.interactionStatesScanned).toBe(3);
+    expect(report.metadata.interactionStateCounts).toEqual({ disclosure: 1, tab: 1, dialog: 1 });
+    expect(report.metadata.interactionStateFailures).toEqual([]);
+    expect(revealed.map((finding: { location: { interactionType: string } }) => finding.location.interactionType).sort()).toEqual(["dialog", "disclosure", "tab"]);
+    const disclosureFinding = revealed.find((finding: { location: { interactionType: string } }) => finding.location.interactionType === "disclosure");
+    expect(disclosureFinding.location).toMatchObject({
       interactionState: "Account actions",
       interactionTrigger: "#account-disclosure",
+      interactionType: "disclosure",
     });
 
-    await page.getByText("After opening Account actions", { exact: false }).first().click();
+    const disclosureGroup = report.findingGroups.find((group: { findingFingerprints: string[] }) => group.findingFingerprints.includes(disclosureFinding.fingerprint));
+    await page.locator(".component-group-nav").filter({ hasText: disclosureGroup.name }).click();
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Revealed interaction state");
+    await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Disclosure");
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("#account-disclosure");
+  });
+
+  it("reports a matched dialog that cannot be safely restored as manual follow-up", async () => {
+    const fixture = await startFixtureServer(false, unsafeDialogFixturePath);
+    fixtureServer = fixture.server;
+    historyDirectory = await mkdtemp(join(tmpdir(), "ada-dashboard-unsafe-dialog-"));
+    const dashboard = await startUiServer({ host: "127.0.0.1", port: 0, historyDirectory });
+    uiServer = dashboard.server;
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+
+    await page.goto(dashboard.url);
+    await page.locator("#url").fill(fixture.url);
+    await page.locator("#screenshots").uncheck();
+    await page.locator("#interaction-states").check();
+    await page.getByRole("button", { name: "Scan page" }).click();
+    await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
+
+    const report = await (await page.request.get(`${dashboard.url}/api/report.json`)).json();
+    expect(report.metadata.interactionStateCounts).toEqual({ disclosure: 0, tab: 0, dialog: 1 });
+    expect(report.metadata.interactionStateFailures).toHaveLength(1);
+    expect(report.metadata.interactionStateFailures[0]).toMatchObject({
+      type: "dialog",
+      name: "Open sticky dialog",
+      trigger: "#sticky-dialog-trigger",
+    });
+    await expect(page.locator("#incomplete").textContent()).resolves.toContain("Interactive states skipped");
+    await expect(page.locator("#incomplete").textContent()).resolves.toContain("#sticky-dialog-trigger");
   });
 });
