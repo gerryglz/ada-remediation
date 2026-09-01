@@ -1,5 +1,5 @@
 import { createServer, type Server } from "node:http";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -15,11 +15,12 @@ async function closeServer(server: Server | undefined): Promise<void> {
   });
 }
 
-async function startFixtureServer(): Promise<{ server: Server; url: string }> {
+async function startFixtureServer(requireAuthentication = false): Promise<{ server: Server; url: string }> {
   const html = await readFile(fixturePath, "utf8");
-  const server = createServer((_request, response) => {
+  const server = createServer((request, response) => {
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    response.end(html);
+    const authenticated = request.headers.cookie?.split(";").some((cookie) => cookie.trim() === "ada-auth=session-token-93a761") ?? false;
+    response.end(requireAuthentication && !authenticated ? "<!doctype html><html lang=\"en\"><title>Sign in</title><main><h1>Sign in</h1></main></html>" : html);
   });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
@@ -35,12 +36,14 @@ describe("dashboard reviewer workflow", () => {
   let uiServer: Server | undefined;
   let browser: Browser | undefined;
   let historyDirectory: string | undefined;
+  let sessionDirectory: string | undefined;
 
   afterEach(async () => {
     await browser?.close();
     await closeServer(uiServer);
     await closeServer(fixtureServer);
     if (historyDirectory) await rm(historyDirectory, { recursive: true, force: true });
+    if (sessionDirectory) await rm(sessionDirectory, { recursive: true, force: true });
   });
 
   it("scans a rendered page and exposes reviewable findings and downloads", async () => {
@@ -82,6 +85,7 @@ describe("dashboard reviewer workflow", () => {
       maxPages: 1,
       captureScreenshots: false,
       interactionStates: false,
+      authentication: "public",
     });
     expect(report.findings.length).toBeGreaterThan(0);
     expect(report.findings[0].renderedHtmlContext.html).toContain("\n");
@@ -133,7 +137,7 @@ describe("dashboard reviewer workflow", () => {
 
     await page.getByRole("button", { name: "Scan history" }).click();
     await page.locator("#history-list .history-row").first().waitFor();
-    await expect(page.locator("#history-list .history-row").first().textContent()).resolves.toContain("WCAG AA · Single page · screenshots off · disclosure states off");
+    await expect(page.locator("#history-list .history-row").first().textContent()).resolves.toContain("WCAG AA · Single page · screenshots off · disclosure states off · public");
     await page.locator("#history-list .history-row").first().getByRole("button", { name: /Run this saved profile again/ }).click();
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
     await expect(page.locator(".new-metric strong").textContent()).resolves.toBe("0");
@@ -154,6 +158,68 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#finding-detail textarea").inputValue()).resolves.toBe("Keyboard access and focus order verified with NVDA.");
     await expect(page.locator("#run-notes").inputValue()).resolves.toBe("Keyboard review assigned to the accessibility team.");
     expect(consoleErrors).toEqual([]);
+  });
+
+  it("uses a local storage state without persisting its path or session contents", async () => {
+    const fixture = await startFixtureServer(true);
+    fixtureServer = fixture.server;
+    historyDirectory = await mkdtemp(join(tmpdir(), "ada-dashboard-auth-history-"));
+    sessionDirectory = await mkdtemp(join(tmpdir(), "ada-dashboard-auth-session-"));
+    const storageStatePath = join(sessionDirectory, "private-session.json");
+    await writeFile(storageStatePath, JSON.stringify({
+      cookies: [{
+        name: "ada-auth",
+        value: "session-token-93a761",
+        domain: "127.0.0.1",
+        path: "/",
+        expires: -1,
+        httpOnly: true,
+        secure: false,
+        sameSite: "Lax",
+      }],
+      origins: [],
+    }), "utf8");
+    const dashboard = await startUiServer({ host: "127.0.0.1", port: 0, historyDirectory });
+    uiServer = dashboard.server;
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+
+    await page.goto(dashboard.url);
+    await page.locator("#url").fill(fixture.url);
+    await page.locator("#screenshots").uncheck();
+    await page.locator("#authenticated").check();
+    await expect(page.locator("#storage-state-label").isVisible()).resolves.toBe(true);
+
+    const missingPath = join(sessionDirectory, "missing-session.json");
+    await page.locator("#storage-state").fill(missingPath);
+    await page.getByRole("button", { name: "Scan page" }).click();
+    await page.locator("#status").getByText("The storage-state file could not be opened or is not a valid Playwright storage-state JSON file.", { exact: true }).waitFor();
+    await expect(page.locator("#status").textContent()).resolves.toBe("The storage-state file could not be opened or is not a valid Playwright storage-state JSON file.");
+    await expect(page.locator("#status").textContent()).resolves.not.toContain(missingPath);
+
+    await page.locator("#storage-state").fill(storageStatePath);
+    await page.getByRole("button", { name: "Scan page" }).click();
+    await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
+    await expect(page.locator("#result-auth").isVisible()).resolves.toBe(true);
+    await expect(page.locator("#storage-state").inputValue()).resolves.toBe("");
+
+    const report = await (await page.request.get(`${dashboard.url}/api/report.json`)).json();
+    expect(report.findings.length).toBeGreaterThan(0);
+    expect(report.metadata.profile.authentication).toBe("storage-state");
+    expect(JSON.stringify(report)).not.toContain(storageStatePath);
+    expect(JSON.stringify(report)).not.toContain("session-token-93a761");
+    const html = await (await page.request.get(`${dashboard.url}/api/report.html`)).text();
+    expect(html).toContain("authenticated session");
+    expect(html).not.toContain(storageStatePath);
+    expect(html).not.toContain("session-token-93a761");
+
+    await page.getByRole("button", { name: "Scan history" }).click();
+    const savedRun = page.locator("#history-list .history-row").first();
+    await expect(savedRun.textContent()).resolves.toContain("authenticated");
+    await savedRun.getByRole("button", { name: /Prepare this authenticated profile/ }).click();
+    await expect(page.locator("#storage-state").inputValue()).resolves.toBe("");
+    await expect(page.locator("#status").textContent()).resolves.toContain("Enter the storage-state path again");
+    await expect(page.locator("#history-list .history-row").count()).resolves.toBe(1);
   });
 
   it("audits opt-in disclosure states and records how to reproduce a revealed finding", async () => {

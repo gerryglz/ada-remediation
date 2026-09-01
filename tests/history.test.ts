@@ -153,6 +153,11 @@ describe("local scan history", () => {
     current.metadata.profile = { ...base.metadata.profile };
 
     expect(scanProfilesCompatible(current.metadata, base.metadata)).toBe(true);
+    current.metadata.profile.authentication = "public";
+    expect(scanProfilesCompatible(current.metadata, base.metadata)).toBe(true);
+    current.metadata.profile.authentication = "storage-state";
+    expect(scanProfilesCompatible(current.metadata, base.metadata)).toBe(false);
+    current.metadata.profile.authentication = "public";
     const savedBase = await saveScanRun(base, directory);
     current.metadata.profile.maxPages = 25;
     expect(scanProfilesCompatible(current.metadata, base.metadata)).toBe(false);

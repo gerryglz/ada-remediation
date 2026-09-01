@@ -155,7 +155,8 @@ export function scanProfilesCompatible(current: ScanMetadata, base: ScanMetadata
       && current.profile.crawl === base.profile.crawl
       && current.profile.maxPages === base.profile.maxPages
       && current.profile.captureScreenshots === base.profile.captureScreenshots
-      && current.profile.interactionStates === base.profile.interactionStates;
+      && current.profile.interactionStates === base.profile.interactionStates
+      && (current.profile.authentication ?? "public") === (base.profile.authentication ?? "public");
   }
   return current.target === base.target
     && current.scanner === base.scanner

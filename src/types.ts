@@ -201,6 +201,7 @@ export interface ScanProfile {
   maxPages: number;
   captureScreenshots: boolean;
   interactionStates: boolean;
+  authentication?: "public" | "storage-state";
 }
 
 export interface ScanResult {

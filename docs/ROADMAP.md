@@ -19,11 +19,12 @@ Version 0.2 turns scan output into a repeatable accessibility review workflow. A
 - Rerun a saved profile directly from scan history.
 - Compare and carry reviewer records forward only between runs created with the same complete profile.
 
-### 3. Authenticated website scanning
+### 3. Authenticated website scanning — completed
 
 - Expose the existing Playwright storage-state support through the local dashboard.
 - Clearly label public and authenticated runs.
 - Keep credentials and session data out of saved reports and scan history.
+- Require the local storage-state path again for every authenticated rerun instead of retaining it in history or the dashboard.
 
 ### 4. Broader interactive-state coverage
 
