@@ -47,7 +47,19 @@ describe("common findings", () => {
   });
 
   it("groups distinct child findings under one detected component and deduplicates shared corrections", () => {
-    const component = { key: "header-menu|nav|primary", category: "Header menu" as const, name: "Primary navigation", selector: 'nav[aria-label="Primary"]' };
+    const component = {
+      key: "header-menu|nav|primary",
+      category: "Header menu" as const,
+      name: "Primary navigation",
+      selector: 'nav[aria-label="Primary"]',
+      remediationTarget: {
+        selector: "ul.primary-menu",
+        html: '<ul class="primary-menu" role="presentation">',
+        currentRole: "presentation",
+        suggestedRoles: ["menu", "menubar", "group"],
+        reason: "Nearest rendered container that directly owns multiple failing menuitem elements.",
+      },
+    };
     const first = { ...finding("https://example.com/", "#products"), component, remediationGuidance: { inspect: [], change: ["Use native navigation links."], verify: [] } };
     const second = { ...finding("https://example.com/about", "#services"), fingerprint: "second", component, remediationGuidance: { inspect: [], change: ["Use native navigation links."], verify: [] } };
     const groups = buildFindingGroups([first, second]);
@@ -56,6 +68,16 @@ describe("common findings", () => {
     expect(groups[0]).toMatchObject({ name: "Primary navigation", category: "Header menu" });
     expect(groups[0].findingFingerprints).toEqual([first.fingerprint, second.fingerprint]);
     expect(groups[0].pages).toEqual(["https://example.com/", "https://example.com/about"]);
+    expect(groups[0].remediationTarget).toEqual(component.remediationTarget);
+    expect(groups[0].issueClusters).toHaveLength(1);
+    expect(groups[0].issueClusters?.[0]).toMatchObject({
+      name: "Menu items share one missing required parent",
+      ruleId: "aria-required-parent",
+      findingFingerprints: [first.fingerprint, second.fingerprint],
+      remediationTarget: component.remediationTarget,
+    });
+    expect(groups[0].issueClusters?.[0].parentResolution).toContain("one owning-container decision");
+    expect(groups[0].issueClusters?.[0].parentResolution).toContain("do not add a role to a broad wrapper");
     expect(groups[0].sharedCorrections).toEqual([{
       text: "Use native navigation links.",
       appliesTo: 2,

@@ -240,7 +240,7 @@ async function scanPage(
         }
         return element;
       };
-      const componentFor = (selectorParts: string[]): FindingComponent | undefined => {
+      const componentFor = (selectorParts: string[], ruleId: string): FindingComponent | undefined => {
         const element = elementFor(selectorParts);
         if (!element) return undefined;
         const menu = element.closest('nav,[role="navigation"],[role="menu"],[role="menubar"]');
@@ -259,20 +259,61 @@ async function scanPage(
               : tag === "form"
                 ? "Form"
                 : "Table";
+        const selectorFor = (candidate: Element): string => {
+          const candidateTag = candidate.tagName.toLowerCase();
+          const candidateLabel = candidate.getAttribute("aria-label")?.trim();
+          const candidateId = candidate.id.trim();
+          const candidateClasses = [...candidate.classList].filter((value) => !/^(active|open|show|selected|focus|hover|js-)$/i.test(value)).slice(0, 2);
+          if (candidateId) return `#${candidateId}`;
+          if (candidateLabel) return `${candidateTag}[aria-label="${candidateLabel}"]`;
+          if (candidateClasses.length) return `${candidateTag}${candidateClasses.map((value) => `.${value}`).join("")}`;
+          const parent = candidate.parentElement;
+          if (!parent) return candidateTag;
+          const sameTagSiblings = [...parent.children].filter((sibling) => sibling.tagName === candidate.tagName);
+          const position = sameTagSiblings.indexOf(candidate) + 1;
+          const parentClass = [...parent.classList].find((value) => !/^(active|open|show|selected|focus|hover|js-)$/i.test(value));
+          const parentSelector = parent.id ? `#${parent.id}` : `${parent.tagName.toLowerCase()}${parentClass ? `.${parentClass}` : ""}`;
+          return `${parentSelector} > ${candidateTag}${sameTagSiblings.length > 1 ? `:nth-of-type(${position})` : ""}`;
+        };
         const label = region.getAttribute("aria-label")?.trim();
         const id = region.id.trim();
         const stableClasses = [...region.classList].filter((value) => !/^(active|open|show|selected|focus|hover|js-)$/i.test(value)).slice(0, 2);
-        const selector = id
-          ? `#${id}`
-          : label
-            ? `${tag}[aria-label="${label}"]`
-            : `${tag}${stableClasses.map((value) => `.${value}`).join("")}`;
+        const selector = selectorFor(region);
         const name = label || (category === "Header menu" ? "Header menu" : category);
+        let remediationTarget: FindingComponent["remediationTarget"];
+        if (ruleId === "aria-required-parent" && isMenuItem) {
+          let candidate = element.parentElement;
+          let owner: Element | null = null;
+          while (candidate && candidate !== region.parentElement) {
+            const ownedMenuItems = candidate.querySelectorAll(':scope > [role="menuitem"], :scope > li > [role="menuitem"], :scope > [role="presentation"] > [role="menuitem"]');
+            if (ownedMenuItems.length > 1) {
+              owner = candidate;
+              break;
+            }
+            candidate = candidate.parentElement;
+          }
+          const target = owner ?? element.parentElement;
+          if (target) {
+            const outerHtml = target.outerHTML;
+            const openingTag = outerHtml.match(/^<[^>]+>/)?.[0] ?? outerHtml.slice(0, 500);
+            const currentRole = target.getAttribute("role")?.trim();
+            remediationTarget = {
+              selector: selectorFor(target),
+              html: openingTag,
+              ...(currentRole ? { currentRole } : {}),
+              suggestedRoles: ["menu", "menubar", "group"],
+              reason: owner
+                ? "Nearest rendered container that directly owns multiple failing menuitem elements."
+                : "Nearest rendered parent of the failing menuitem; confirm the shared owner in maintained source.",
+            };
+          }
+        }
         return {
           key: [category, tag, label ?? "", id, ...stableClasses].join("|").toLowerCase(),
           category,
           name,
           selector,
+          ...(remediationTarget ? { remediationTarget } : {}),
         };
       };
       const renderedHtmlContextFor = (selectorParts: string[], detectedHtml: string): RenderedHtmlContext => {
@@ -290,7 +331,7 @@ async function scanPage(
         ...violation,
         nodes: violation.nodes.map((node) => ({
           ...node,
-          component: componentFor(node.target),
+          component: componentFor(node.target, violation.id),
           renderedHtmlContext: renderedHtmlContextFor(node.target, node.html),
         })),
       }));

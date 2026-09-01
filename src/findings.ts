@@ -1,4 +1,4 @@
-import type { Finding, FindingComponentCategory, FindingGroup, FindingOccurrence } from "./types.js";
+import type { Finding, FindingComponentCategory, FindingGroup, FindingIssueCluster, FindingOccurrence } from "./types.js";
 import { buildGroupRemediationPrompt, findingRemediationTheme } from "./guidance.js";
 
 function normalized(value: string | undefined): string {
@@ -62,6 +62,57 @@ function groupCorrections(findings: Finding[]): FindingGroup["sharedCorrections"
     .sort((a, b) => b.appliesTo - a.appliesTo || a.text.localeCompare(b.text));
 }
 
+function failedCondition(finding: Finding): string {
+  return normalized(finding.impact)
+    .replace(/^fix any of the following:\s*/i, "")
+    .replace(/^failure summary:\s*/i, "");
+}
+
+function issueClusterName(finding: Finding): string {
+  if (finding.ruleId === "aria-required-parent") {
+    return /menu/i.test(finding.component?.category ?? "")
+      ? "Menu items share one missing required parent"
+      : "ARIA elements share one missing required parent";
+  }
+  return finding.title;
+}
+
+function parentResolution(finding: Finding, count: number): string | undefined {
+  if (finding.ruleId !== "aria-required-parent") return undefined;
+  const owner = finding.component?.remediationTarget?.selector ?? finding.component?.selector ?? "the shared component";
+  return `Treat these ${count} element failures as one owning-container decision. Inspect ${owner} and locate the nearest container that directly owns the listed elements. For ordinary website navigation, remove menu-only roles and aria-posinset/aria-setsize attributes from native buttons and links. If this is intentionally an application-style menu, apply the required menu or menubar role to the actual owning container and implement the complete keyboard interaction pattern; do not add a role to a broad wrapper only to silence the scanner.`;
+}
+
+export function buildFindingIssueClusters(findings: Finding[]): FindingIssueCluster[] {
+  const clustered = new Map<string, Finding[]>();
+  for (const finding of findings) {
+    const key = [
+      finding.ruleId,
+      failedCondition(finding).toLowerCase(),
+      finding.component?.remediationTarget?.selector ?? finding.component?.selector ?? "",
+    ].join("|");
+    const members = clustered.get(key) ?? [];
+    members.push(finding);
+    clustered.set(key, members);
+  }
+  return [...clustered.entries()].map(([key, members], index) => {
+    const first = members[0];
+    const cluster: FindingIssueCluster = {
+      id: `issue-${index + 1}-${key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48)}`,
+      name: issueClusterName(first),
+      ruleId: first.ruleId,
+      failedCondition: failedCondition(first),
+      recommendedAction: first.codeSuggestion?.title ?? first.remediationGuidance?.change[0] ?? first.remediation,
+      findingFingerprints: members.map((finding) => finding.fingerprint),
+      pages: [...new Set(members.flatMap(findingPages))],
+      ...(first.component?.remediationTarget ? { remediationTarget: first.component.remediationTarget } : {}),
+    };
+    const resolution = parentResolution(first, members.length);
+    if (resolution) cluster.parentResolution = resolution;
+    return cluster;
+  });
+}
+
 export function buildFindingGroups(findings: Finding[]): FindingGroup[] {
   const grouped = new Map<string, Finding[]>();
   for (const finding of findings) {
@@ -80,9 +131,11 @@ export function buildFindingGroups(findings: Finding[]): FindingGroup[] {
       name: component.name,
       category: component.category,
       ...(component.selector ? { selector: component.selector } : {}),
+      ...(component.remediationTarget ? { remediationTarget: component.remediationTarget } : {}),
       findingFingerprints: members.map((finding) => finding.fingerprint),
       pages: [...new Set(members.flatMap(findingPages))],
       sharedCorrections: groupCorrections(members),
+      issueClusters: buildFindingIssueClusters(members),
     };
     group.remediationPrompt = buildGroupRemediationPrompt(group, members);
     return [group];
@@ -107,6 +160,7 @@ export function buildFindingGroups(findings: Finding[]): FindingGroup[] {
       findingFingerprints: pattern.members.map((finding) => finding.fingerprint),
       pages: [...new Set(pattern.members.flatMap(findingPages))],
       sharedCorrections: groupCorrections(pattern.members),
+      issueClusters: buildFindingIssueClusters(pattern.members),
     };
     group.remediationPrompt = buildGroupRemediationPrompt(group, pattern.members);
     return [group];

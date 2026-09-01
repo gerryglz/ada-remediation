@@ -48,7 +48,19 @@ describe("reporters", () => {
       scope: "parent",
       truncated: false,
     };
-    const component = { key: "header-menu|primary", category: "Header menu" as const, name: "Primary navigation", selector: 'nav[aria-label="Primary"]' };
+    const component = {
+      key: "header-menu|primary",
+      category: "Header menu" as const,
+      name: "Primary navigation",
+      selector: 'nav[aria-label="Primary"]',
+      remediationTarget: {
+        selector: "ul.primary-menu",
+        html: '<ul class="primary-menu" role="presentation">',
+        currentRole: "presentation",
+        suggestedRoles: ["menu", "menubar", "group"],
+        reason: "Nearest rendered container that directly owns multiple failing menuitem elements.",
+      },
+    };
     result.findings[0].component = component;
     result.findings[1].component = component;
     result.findings[1].remediationGuidance = {
@@ -82,7 +94,7 @@ describe("reporters", () => {
     expect(terminalReport(result)).toContain("Automated results cannot certify");
     expect(terminalReport(result)).toContain("Recurring Navigation menu: 2 pages / 2 occurrences");
     expect(terminalReport(result)).toContain("Finding groups:");
-    expect(terminalReport(result)).toContain("Component — Primary navigation: 2 findings");
+    expect(terminalReport(result)).toContain("Component — Primary navigation: 2 issue set(s) / 2 affected elements");
     expect(terminalReport(result)).toContain("Interactive states opened: 1 state(s): 1 disclosure, 0 tab, 0 dialog");
     expect(terminalReport(result)).toContain("Interactive states skipped: 1");
     expect(terminalReport(result)).toContain("Non-HTML assets skipped: 1");
@@ -121,7 +133,9 @@ describe("reporters", () => {
     expect(html).toContain("Components and issue patterns");
     expect(html).toContain("Primary navigation");
     expect(html).toContain("Corrections shared by multiple findings");
-    expect(html).toContain("Child findings");
+    expect(html).toContain("Issue sets and affected elements");
+    expect(html).toContain("Likely shared owner");
+    expect(html).toContain("ul.primary-menu");
     expect(html).toContain("APPLIES TO 2");
     expect(html).toContain("Second affected page");
     expect(html).toContain("2 total occurrences");
@@ -254,6 +268,11 @@ describe("reporters", () => {
     expect(html).toContain("enhanceCommonFinding");
     expect(html).toContain("renderGroupDetail");
     expect(html).toContain("componentGroupNav");
+    expect(html).toContain("issueSetsFor");
+    expect(html).toContain("issueSetCard");
+    expect(html).toContain("Shared cause and parent-level correction");
+    expect(html).toContain("Affected child elements");
+    expect(html).toContain("do not add a role to a broad wrapper only to silence the scanner");
     expect(html).toContain("groupChildDetail");
     expect(html).toContain("sidebar-components");
     expect(html).toContain("Individual findings");

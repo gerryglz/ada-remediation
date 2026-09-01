@@ -45,6 +45,15 @@ export interface FindingComponent {
   category: FindingComponentCategory;
   name: string;
   selector?: string;
+  remediationTarget?: FindingRemediationTarget;
+}
+
+export interface FindingRemediationTarget {
+  selector: string;
+  html: string;
+  currentRole?: string;
+  suggestedRoles: string[];
+  reason: string;
 }
 
 export interface SharedCorrection {
@@ -59,10 +68,24 @@ export interface FindingGroup {
   name: string;
   category: FindingComponentCategory | FindingIssueCategory;
   selector?: string;
+  remediationTarget?: FindingRemediationTarget;
   findingFingerprints: string[];
   pages: string[];
   sharedCorrections: SharedCorrection[];
+  issueClusters?: FindingIssueCluster[];
   remediationPrompt?: string;
+}
+
+export interface FindingIssueCluster {
+  id: string;
+  name: string;
+  ruleId: string;
+  failedCondition: string;
+  recommendedAction: string;
+  findingFingerprints: string[];
+  pages: string[];
+  remediationTarget?: FindingRemediationTarget;
+  parentResolution?: string;
 }
 
 export interface VisualEvidence {

@@ -225,6 +225,7 @@ export function buildGroupRemediationPrompt(group: FindingGroup, findings: Findi
   const pages = [...new Set(findings.flatMap((finding) => (finding.occurrences ?? [{ fingerprint: finding.fingerprint, location: finding.location }]).map((item) => item.location.url)).filter((url): url is string => Boolean(url)))];
   const corrections = [...new Set(findings.flatMap((finding) => finding.remediationGuidance?.change?.length ? finding.remediationGuidance.change : [finding.remediation]).filter(Boolean))];
   const verification = [...new Set(findings.flatMap((finding) => finding.remediationGuidance?.verify ?? []))];
+  const remediationTarget = group.remediationTarget ?? findings.find((finding) => finding.component?.remediationTarget)?.component?.remediationTarget;
   const childDetails = findings.flatMap((finding, index) => [
     `${index + 1}. ${finding.title}`,
     `   Category: ${finding.issueCategory ?? findingIssueCategory(finding)}`,
@@ -249,8 +250,14 @@ export function buildGroupRemediationPrompt(group: FindingGroup, findings: Findi
     `Theme: ${group.name}`,
     `Category: ${group.category}`,
     ...(group.selector ? [`Owning component selector: ${group.selector}`] : []),
+    ...(remediationTarget ? [
+      `Likely shared remediation owner: ${remediationTarget.selector}`,
+      `Current owner markup: ${remediationTarget.html}`,
+      `Expected parent roles reported by the rule: ${remediationTarget.suggestedRoles.join(", ")}`,
+    ] : []),
     `Affected pages (${pages.length}): ${pages.length ? pages.join(", ") : "Review the source locations below"}`,
-    `Child findings: ${findings.length}`,
+    `Issue sets: ${group.issueClusters?.length ?? findings.length}`,
+    `Affected elements: ${findings.length}`,
     "",
     "Findings to resolve:",
     ...childDetails,
@@ -262,6 +269,7 @@ export function buildGroupRemediationPrompt(group: FindingGroup, findings: Findi
     "- Treat the findings as one coordinated remediation task, but verify that every listed selector and failed condition is resolved.",
     "- Preserve intended content, visual design, and behavior unless an accessibility correction requires a deliberate change.",
     "- Prefer native HTML semantics before ARIA. Do not hide elements, suppress scanner rules, or weaken tests to remove findings.",
+    "- When several child failures share a missing ARIA parent, inspect the actual common owning container. Do not add a role to a broad wrapper only to silence the scanner; choose native navigation semantics or implement the complete menu/menubar pattern deliberately.",
     "- Check every use of the shared component or pattern across the project and explain which maintained source files were changed.",
     "",
     "Verification:",

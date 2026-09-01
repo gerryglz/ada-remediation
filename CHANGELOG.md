@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
 - Single-instance dashboard runtime tracking and `npm run ui:stop` for safely releasing its local port from another terminal.
 - Collapsible automated and manual finding filters that preserve the queue's review space.
 - Same-origin crawl exclusions for PDFs, media, office documents, and archives, reported separately from genuine incomplete HTML pages.
+- Component-level issue sets that consolidate repeated child selectors, identify likely shared ARIA owners, and keep every affected element and source page available for verification.
 
 ### Fixed
 
