@@ -31,7 +31,7 @@ function wcagTargetText(result: ScanResult): string | undefined {
 function scanProfileText(result: ScanResult): string | undefined {
   const profile = result.metadata.profile;
   if (!profile) return undefined;
-  return `${profile.crawl ? `Crawl up to ${profile.maxPages} pages` : "Single page"}; screenshots ${profile.captureScreenshots ? "on" : "off"}; disclosure states ${profile.interactionStates ? "on" : "off"}`;
+  return `${profile.crawl ? `Crawl up to ${profile.maxPages} pages` : "Single page"}; screenshots ${profile.captureScreenshots ? "on" : "off"}; disclosure states ${profile.interactionStates ? "on" : "off"}; ${profile.authentication === "storage-state" ? "authenticated session" : "public session"}`;
 }
 
 function findingLevelBadge(finding: Finding): string {

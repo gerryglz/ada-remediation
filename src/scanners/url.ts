@@ -499,6 +499,7 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
         maxPages,
         captureScreenshots: options.captureScreenshots ?? true,
         interactionStates: (options.interactionStateLimit ?? 0) > 0,
+        authentication: options.storageState ? "storage-state" : "public",
       },
       incomplete,
     },

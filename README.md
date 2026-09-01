@@ -37,10 +37,11 @@ This is the easiest way to test a website when you have its URL.
 4. Choose the **WCAG 2.2 conformance target**. **Level AA** is the default and the most common organizational target. Higher levels include all available automated checks from the lower levels.
 5. Leave **Capture screenshots** selected if you want visual evidence.
 6. Select **Scan disclosure states** to also open up to 10 visible disclosure buttons per page that expose both `aria-expanded="false"` and a valid `aria-controls` target. This can find issues hidden inside collapsed menus, accordions, and similar panels. It is opt-in because it interacts with the tested page.
-7. Select **Crawl same-origin pages** only when you want more than the supplied page and are authorized to crawl the site.
-8. Click **Scan page**. The progress bar reports the live phase—opening the page, running axe-core, opening eligible disclosures, collecting evidence and screenshots, or building the report—plus the current page and an estimated percentage. For crawls, the percentage is based on the selected page limit and may finish early when the site has fewer eligible links.
-9. When a scan finishes, the scan controls collapse automatically so the report can use the full browser height. Select **Show scan controls** in the header whenever you want to change the URL, WCAG target, disclosure-state, crawl, or screenshot option and run another scan.
-10. Review the selected target, severity totals, and **Automated findings**. Select **Hide summary** to collapse the totals and testing notice into a compact bar when you want more vertical space; select **Show summary** to restore them. On desktop, the finding queue and selected finding scroll independently so you can keep your place in both columns. Use the separate **Impact severity** and **WCAG level** controls together to narrow findings—for example, Serious + AAA. On smaller screens, the queue and details stack into one readable page. The review workspace separates the selected result into clearly labeled sections:
+7. For a page that requires login, select **Use authenticated session** and enter the absolute path to a local Playwright storage-state JSON file. See [Testing method 6](#testing-method-6-scan-authenticated-pages) for the secure setup steps. The dashboard uses that path for the current request only; it never saves the path, cookies, tokens, or file contents.
+8. Select **Crawl same-origin pages** only when you want more than the supplied page and are authorized to crawl the site.
+9. Click **Scan page**. The progress bar reports the live phase—opening the page, running axe-core, opening eligible disclosures, collecting evidence and screenshots, or building the report—plus the current page and an estimated percentage. For crawls, the percentage is based on the selected page limit and may finish early when the site has fewer eligible links.
+10. When a scan finishes, the scan controls collapse automatically so the report can use the full browser height. Select **Show scan controls** in the header whenever you want to change the URL, WCAG target, authentication mode, disclosure-state, crawl, or screenshot option and run another scan.
+11. Review the selected target, authentication label, severity totals, and **Automated findings**. Select **Hide summary** to collapse the totals and testing notice into a compact bar when you want more vertical space; select **Show summary** to restore them. On desktop, the finding queue and selected finding scroll independently so you can keep your place in both columns. Use the separate **Impact severity** and **WCAG level** controls together to narrow findings—for example, Serious + AAA. On smaller screens, the queue and details stack into one readable page. The review workspace separates the selected result into clearly labeled sections:
    - **Finding summary** explains priority and detection confidence, shows an **A**, **AA**, or **AAA** badge for the individual rule, labels requirements as **WCAG 2.2 · Section X.X.X**, links each one to its exact W3C Understanding page, and labels Deque separately as axe scanner documentation
    - **Where it was found** provides clickable source-page links and the affected CSS selector; findings exposed by an opened disclosure also identify the state name and exact trigger selector needed to reproduce it
    - **Visual evidence** shows a compact screenshot thumbnail that opens into a near-full-window view
@@ -49,14 +50,14 @@ This is the easiest way to test a website when you have its URL.
    - **Rendered HTML context** shows the original browser markup around the affected element; **Suggested change** explains the correction direction without pretending generated code is a production-ready replacement
    - **How to verify the fix** provides a retesting checklist with W3C standards links first, followed by the affected source page and optional Deque/axe scanner details
    - Grouped findings use the affected element or recognizable component pattern as the collapsed-card title instead of repeating the scanner rule name. Each card shows its exact failed condition, recommended action, and page scope before it is opened. Expanding the card reveals clickable affected-page links and labels the CSS selector as technical location information rather than presenting it as the finding name
-11. In **Automated finding review**, record **Unreviewed**, **Action required**, **Accepted risk**, or **False positive**, plus reviewer notes. The third finding-list filter narrows the queue by this disposition. When a component or issue-pattern group is selected, the same controls can update every visible child at once. Status choices save immediately; select **Save review** after editing notes.
-12. For an identified text-contrast issue, review **Color contrast evidence** for the computed foreground and background colors, measured ratio, required ratio, and font information. The suggested CSS uses placeholders for approved design tokens; it does not invent production colors.
-13. Select **Manual review** and work through the target-aware human-review tasks. Each task includes detailed steps and direct W3C links. Record one outcome—**Not tested**, **Pass**, **Needs attention**, or **Not applicable**—plus task-specific evidence or follow-up notes. Use the status filters to focus the queue. Status changes save immediately; select **Save review** after changing task notes.
-14. Add run-level **Reviewer notes** for broader decisions, ownership, or follow-up work, then select **Save review**. Finding dispositions, task outcomes, and all reviewer notes are stored only with the local run.
-15. Use **Compare with same-profile run** to select an earlier run created with the exact target, WCAG level, crawl limit, screenshot setting, and disclosure-state setting. **New** findings were not present in that run, **Existing** findings remain, and **Resolved** findings were present previously but are absent now.
-16. Select **Scan history** in the application header to reopen or delete saved runs. Runs are grouped by website origin and show their complete profile. Select **Run again** to immediately repeat the saved target and configuration.
-17. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report. Both record the selected conformance target, automated findings, finding dispositions and notes, contrast evidence when available, and saved manual outcomes and notes.
-18. Press `Ctrl+C` in the terminal when you are finished. If that terminal is no longer available, run `npm run ui:stop` from the project directory. Both methods stop the tracked dashboard and release its port.
+12. In **Automated finding review**, record **Unreviewed**, **Action required**, **Accepted risk**, or **False positive**, plus reviewer notes. The third finding-list filter narrows the queue by this disposition. When a component or issue-pattern group is selected, the same controls can update every visible child at once. Status choices save immediately; select **Save review** after editing notes.
+13. For an identified text-contrast issue, review **Color contrast evidence** for the computed foreground and background colors, measured ratio, required ratio, and font information. The suggested CSS uses placeholders for approved design tokens; it does not invent production colors.
+14. Select **Manual review** and work through the target-aware human-review tasks. Each task includes detailed steps and direct W3C links. Record one outcome—**Not tested**, **Pass**, **Needs attention**, or **Not applicable**—plus task-specific evidence or follow-up notes. Use the status filters to focus the queue. Status changes save immediately; select **Save review** after changing task notes.
+15. Add run-level **Reviewer notes** for broader decisions, ownership, or follow-up work, then select **Save review**. Finding dispositions, task outcomes, and all reviewer notes are stored only with the local run.
+16. Use **Compare with same-profile run** to select an earlier run created with the exact target, WCAG level, authentication mode, crawl limit, screenshot setting, and disclosure-state setting. **New** findings were not present in that run, **Existing** findings remain, and **Resolved** findings were present previously but are absent now.
+17. Select **Scan history** in the application header to reopen or delete saved runs. Runs are grouped by website origin and show their complete profile. Public runs offer **Run again**. Authenticated runs offer **Prepare rerun**, which restores all non-secret settings and then requires the storage-state path again.
+18. Use **Download JSON** for machine-readable evidence or **Download HTML report** for a portable visual report. Both record the selected conformance target, public or authenticated mode, automated findings, finding dispositions and notes, contrast evidence when available, and saved manual outcomes and notes. Neither export contains the storage-state path or its contents.
+19. Press `Ctrl+C` in the terminal when you are finished. If that terminal is no longer available, run `npm run ui:stop` from the project directory. Both methods stop the tracked dashboard and release its port.
 
 The dashboard runs locally on your computer and binds to `127.0.0.1` by default. It does not upload reports or screenshots to an external service. Screenshots can contain visible page information, including information from authenticated pages, so review them before sharing.
 
@@ -75,9 +76,9 @@ Every successful dashboard scan is saved automatically on the same computer that
 
 Each run is one JSON file containing the complete scan result, embedded screenshot evidence, automated finding dispositions and notes, per-task manual outcomes and notes, and run-level reviewer notes. The dashboard does not create a cloud account or send these records to an external history service.
 
-Select **Scan history** to see runs grouped by website origin. Each new rendered scan records its exact target, WCAG level, single-page or crawl mode, page limit, screenshot choice, and disclosure-state choice. **Run again** applies those values and starts the scan immediately. Opening a saved run restores its findings, downloadable reports, manual outcomes, and notes. Select **Delete** to permanently remove that run's JSON record, screenshots, manual review, and notes from the computer. Older records that predate scan profiles can still be opened, but cannot be rerun or compared as an exact profile.
+Select **Scan history** to see runs grouped by website origin. Each new rendered scan records its exact target, WCAG level, public or authenticated mode, single-page or crawl mode, page limit, screenshot choice, and disclosure-state choice. **Run again** immediately applies a public profile. **Prepare rerun** applies an authenticated profile's non-secret settings, but requires the local storage-state path again because the path and session contents are never saved. Opening a saved run restores its findings, downloadable reports, manual outcomes, and notes. Select **Delete** to permanently remove that run's JSON record, screenshots, manual review, and notes from the computer. Older records that predate scan profiles can still be opened, but cannot be rerun or compared as an exact profile.
 
-The newest run is compared with the most recent earlier run that has the same complete scan profile by default. Use **Compare with same-profile run** to choose another compatible run. Runs with a different URL, WCAG target, crawl mode or limit, screenshot choice, or disclosure-state choice are excluded so the totals are not presented as an equivalent regression comparison. Comparison uses stable finding and occurrence fingerprints rather than titles or sidebar positions, which allows recurring component findings to remain identifiable across crawls:
+The newest run is compared with the most recent earlier run that has the same complete scan profile by default. Use **Compare with same-profile run** to choose another compatible run. Runs with a different URL, WCAG target, authentication mode, crawl mode or limit, screenshot choice, or disclosure-state choice are excluded so the totals are not presented as an equivalent regression comparison. Comparison uses stable finding and occurrence fingerprints rather than titles or sidebar positions, which allows recurring component findings to remain identifiable across crawls:
 
 - **New**: present in the open run but not the selected earlier run
 - **Existing**: present in both runs
@@ -286,24 +287,34 @@ This is not a general crawler or complete interaction test. It does not submit f
 
 ## Testing method 6: scan authenticated pages
 
-Use a Playwright storage-state file when a page requires login.
+Use a Playwright storage-state file when a page requires login. This file can contain reusable cookies and tokens, so create it outside the repository and protect it like a password.
 
-1. Create a local authenticated browser state:
+1. Create a private directory that is not synchronized or committed, then create the authenticated browser state there. This Windows example uses your user profile; choose an equivalent protected location on macOS or Linux:
 
-   ```bash
-   npx playwright codegen --save-storage=auth.json https://example.com/login
+   ```powershell
+   New-Item -ItemType Directory -Force "$env:USERPROFILE\.ada-remediation\sessions"
+   npx playwright codegen --save-storage="$env:USERPROFILE\.ada-remediation\sessions\example-auth.json" https://example.com/login
    ```
 
 2. Complete the login in the browser window, verify you are signed in, and close the window.
-3. Scan the protected URL using the saved state:
+3. Choose one testing route:
+
+   - **Dashboard:** run `npm run ui`, select **Use authenticated session**, and paste the file's **absolute path** into **Playwright storage-state JSON**. Then enter the protected URL and select **Scan page**.
+   - **Command line:** pass the file with `--storage-state`:
 
    ```bash
-   node dist/cli.js scan-url https://example.com/account --storage-state auth.json
+   node dist/cli.js scan-url https://example.com/account --storage-state "C:\Users\you\.ada-remediation\sessions\example-auth.json"
    ```
 
-4. Delete the storage-state file when it is no longer needed.
+4. Confirm the result is labeled **Authenticated scan**. Saved history and exports record only `authenticated session`; they do not contain the storage-state path, cookies, tokens, or file contents. Public and authenticated profiles are intentionally excluded from one another's comparisons.
+5. To repeat an authenticated history entry, select **Prepare rerun** and supply the absolute path again. Requiring it again prevents the dashboard from retaining a secret path.
+6. Delete the storage-state file as soon as it is no longer needed:
 
-Treat `auth.json` as a secret. Never commit it, share it, or use an account you are not authorized to test. Add the chosen filename to the tested project's `.gitignore`.
+   ```powershell
+   Remove-Item -LiteralPath "$env:USERPROFILE\.ada-remediation\sessions\example-auth.json"
+   ```
+
+Never commit or share a storage-state file, place it in the repository, paste its contents into the dashboard, or use an account you are not authorized to test. Add the chosen filename pattern to the tested project's `.gitignore` as an extra safeguard. Screenshots and rendered HTML from authenticated pages may also contain private information; review exported evidence before sharing it.
 
 ## Testing method 7: test in CI or a pull request
 

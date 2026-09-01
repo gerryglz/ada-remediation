@@ -7,7 +7,7 @@ describe("reporters", () => {
   it("renders terminal, HTML, and SARIF output", async () => {
     const result = await scanRepository("tests/fixtures/inaccessible");
     result.metadata.wcagLevel = "AAA";
-    result.metadata.profile = { target: result.metadata.target, wcagLevel: "AAA", crawl: false, maxPages: 1, captureScreenshots: true, interactionStates: true };
+    result.metadata.profile = { target: result.metadata.target, wcagLevel: "AAA", crawl: false, maxPages: 1, captureScreenshots: true, interactionStates: true, authentication: "storage-state" };
     result.findings[0].location.url = "https://example.com/problem";
     result.findings[0].location.pageTitle = "Example problem page";
     result.findings[0].location.interactionState = "Account actions";
@@ -73,7 +73,7 @@ describe("reporters", () => {
       notes: "Manual review is in progress.",
     };
     expect(terminalReport(result)).toContain("Conformance target: WCAG 2.2 Level AAA");
-    expect(terminalReport(result)).toContain("Scan profile: Single page; screenshots on; disclosure states on");
+    expect(terminalReport(result)).toContain("Scan profile: Single page; screenshots on; disclosure states on; authenticated session");
     expect(terminalReport(result)).toContain("Automated results cannot certify");
     expect(terminalReport(result)).toContain("Recurring Navigation menu: 2 pages / 2 occurrences");
     expect(terminalReport(result)).toContain("Finding groups:");
@@ -84,7 +84,7 @@ describe("reporters", () => {
     const html = htmlReport(result);
     expect(html).toContain("Findings in context");
     expect(html).toContain("Conformance target:</strong> WCAG 2.2 Level AAA");
-    expect(html).toContain("Saved scan profile:</strong> Single page; screenshots on; disclosure states on");
+    expect(html).toContain("Saved scan profile:</strong> Single page; screenshots on; disclosure states on; authenticated session");
     expect(html).toContain("Example problem page");
     expect(html).toContain("data:image/jpeg;base64,ZmFrZQ==");
     expect(html).toContain("Rendered HTML context");
@@ -215,6 +215,11 @@ describe("reporters", () => {
     expect(html).toContain("applyAndRunProfile");
     expect(html).toContain("scanProfilesMatch");
     expect(html).toContain('id="result-profile"');
+    expect(html).toContain('id="authenticated"');
+    expect(html).toContain('id="storage-state"');
+    expect(html).toContain('id="result-auth"');
+    expect(html).toContain("Authenticated scan");
+    expect(html).toContain("Prepare rerun");
     expect(html).toContain('id="finding-review-filters"');
     expect(html).toContain("Automated finding review");
     expect(html).toContain("Accepted risk");
