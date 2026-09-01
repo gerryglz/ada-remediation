@@ -66,6 +66,7 @@ interface InteractionCandidate {
   targetSelector: string;
   name: string;
   restoreSelector?: string;
+  preflightFailure?: string;
 }
 
 class PageAuditError extends Error {
@@ -343,7 +344,7 @@ async function scanPage(
     const findings: Finding[] = [];
     const seenFingerprints = new Set<string>();
     let interactionStatesScanned = 0;
-    const interactionStateCounts: Record<InteractionStateType, number> = { disclosure: 0, tab: 0, dialog: 0 };
+    const interactionStateCounts: Record<InteractionStateType, number> = { disclosure: 0, tab: 0, dialog: 0, carousel: 0 };
     const interactionStateFailures: InteractionStateFailure[] = [];
     const collectFindings = async (
       auditResult: { violations: AxeViolation[]; pageTitle: string },
@@ -401,8 +402,12 @@ async function scanPage(
           || button.textContent?.replace(/\s+/g, " ").trim()
           || button.title.trim()
           || fallback;
+        const isSafeButton = (button: HTMLButtonElement): boolean => !button.disabled
+          && button.getAttribute("aria-disabled") !== "true"
+          && visible(button)
+          && (!button.form || button.type === "button");
         return [...document.querySelectorAll<HTMLButtonElement>("button")].flatMap((button): InteractionCandidate[] => {
-          if (button.disabled || button.getAttribute("aria-disabled") === "true" || !visible(button) || (button.form && button.type !== "button")) return [];
+          if (!isSafeButton(button)) return [];
           const controls = button.getAttribute("aria-controls")?.trim() ?? "";
           if (!controls || /\s/.test(controls)) return [];
           const target = document.getElementById(controls);
@@ -427,6 +432,37 @@ async function scanPage(
             if (!selector) return [];
             return [{ type: "dialog", selector, targetSelector, name: nameFor(button, `Dialog for #${controls}`) }];
           }
+          if (target.getAttribute("aria-roledescription")?.toLowerCase() === "carousel" && ["region", "group"].includes(target.getAttribute("role")?.toLowerCase() ?? "")) {
+            const triggerName = nameFor(button, "");
+            if (!/\b(next|forward|following)\b/i.test(triggerName)) return [];
+            const selector = selectorFor(button, `button[aria-controls="${CSS.escape(controls)}"]`);
+            if (!selector || document.querySelectorAll(targetSelector).length !== 1) return [];
+            const carouselName = target.getAttribute("aria-label")?.trim() || "Carousel";
+            const candidate = (preflightFailure: string, restoreSelector?: string): InteractionCandidate[] => [{
+              type: "carousel",
+              selector,
+              targetSelector,
+              ...(restoreSelector ? { restoreSelector } : {}),
+              name: `${carouselName} — next slide`,
+              preflightFailure,
+            }];
+            const carouselButtons = [...target.querySelectorAll<HTMLButtonElement>("button")];
+            if (carouselButtons.some((control) => /\b(pause|stop|play|resume|rotation|autoplay)\b/i.test(nameFor(control, "")))) {
+              return candidate("An automatic-rotation control was detected, so this carousel requires manual pause, timing, and keyboard review.");
+            }
+            const slides = [...target.querySelectorAll<HTMLElement>('[aria-roledescription="slide"]')];
+            if (slides.length < 2 || slides.filter(visible).length !== 1) {
+              return candidate("The carousel did not expose at least two slides with exactly one visible starting slide.");
+            }
+            const previous = carouselButtons.find((candidate) => candidate !== button
+              && isSafeButton(candidate)
+              && candidate.getAttribute("aria-controls")?.trim() === controls
+              && /\b(previous|prev|back)\b/i.test(nameFor(candidate, "")));
+            if (!previous) return candidate("A visible, enabled Previous button tied to the same carousel was not available to restore the starting slide.");
+            const restoreSelector = selectorFor(previous, `button[aria-controls="${CSS.escape(controls)}"]`);
+            if (!restoreSelector) return candidate("The Previous button could not be addressed with a unique selector, so the starting slide could not be restored safely.");
+            return [{ type: "carousel", selector, targetSelector, restoreSelector, name: `${carouselName} — next slide` }];
+          }
           if (button.getAttribute("aria-expanded") !== "false" || visible(target)) return [];
           const selector = selectorFor(button, `button[aria-controls="${CSS.escape(controls)}"]`);
           if (!selector) return [];
@@ -435,8 +471,26 @@ async function scanPage(
       }, interactionStateLimit);
 
       for (const interaction of interactions) {
+        if (interaction.preflightFailure) {
+          interactionStateFailures.push({ url, type: interaction.type, name: interaction.name, trigger: interaction.selector, reason: interaction.preflightFailure });
+          continue;
+        }
         const trigger = page.locator(interaction.selector).first();
         const target = page.locator(interaction.targetSelector).first();
+        const carouselState = async (): Promise<string | undefined> => interaction.type === "carousel"
+          ? target.evaluate((carousel) => {
+            const visible = (element: HTMLElement): boolean => Boolean(element.getClientRects().length) && getComputedStyle(element).visibility !== "hidden";
+            const slides = [...carousel.querySelectorAll<HTMLElement>('[aria-roledescription="slide"]')];
+            return JSON.stringify(slides.map((slide, index) => ({
+              key: slide.id || String(index),
+              visible: visible(slide),
+              hidden: slide.hidden,
+              ariaHidden: slide.getAttribute("aria-hidden"),
+              ariaCurrent: slide.getAttribute("aria-current"),
+            })));
+          })
+          : undefined;
+        const initialCarouselState = await carouselState();
         const restoreInteraction = async (): Promise<boolean> => {
           if (interaction.type === "disclosure") {
             if (await trigger.getAttribute("aria-expanded") === "true") await trigger.click({ timeout: 2_000, noWaitAfter: true });
@@ -444,15 +498,25 @@ async function scanPage(
             await page.locator(interaction.restoreSelector).first().click({ timeout: 2_000, noWaitAfter: true });
           } else if (interaction.type === "dialog" && await target.isVisible().catch(() => false)) {
             await page.keyboard.press("Escape");
+          } else if (interaction.type === "carousel" && interaction.restoreSelector) {
+            await page.locator(interaction.restoreSelector).first().click({ timeout: 2_000, noWaitAfter: true });
           }
           await page.waitForTimeout(150);
-          if (await target.isVisible().catch(() => false)) return false;
+          if (interaction.type !== "carousel" && await target.isVisible().catch(() => false)) return false;
           if (interaction.type === "disclosure") return await trigger.getAttribute("aria-expanded") !== "true";
           if (interaction.type === "tab" && interaction.restoreSelector) return await page.locator(interaction.restoreSelector).first().getAttribute("aria-selected") === "true";
+          if (interaction.type === "carousel") return await carouselState() === initialCarouselState;
           return true;
         };
         try {
-          const action = interaction.type === "tab" ? "Selecting" : "Opening";
+          if (interaction.type === "carousel") {
+            await page.waitForTimeout(300);
+            if (await carouselState() !== initialCarouselState) {
+              interactionStateFailures.push({ url, type: interaction.type, name: interaction.name, trigger: interaction.selector, reason: "The carousel changed without activation, so it may auto-rotate and was left for manual review." });
+              continue;
+            }
+          }
+          const action = interaction.type === "tab" ? "Selecting" : interaction.type === "carousel" ? "Advancing" : "Opening";
           reportStage(0.5, "analyzing", `${action} ${interaction.type} “${interaction.name}” and auditing its state.`);
           await trigger.click({ timeout: Math.min(3_000, timeout), noWaitAfter: true });
           await page.waitForTimeout(250);
@@ -461,7 +525,9 @@ async function scanPage(
             ? await trigger.getAttribute("aria-expanded") === "true" && targetVisible
             : interaction.type === "tab"
               ? await trigger.getAttribute("aria-selected") === "true" && targetVisible
-              : targetVisible;
+              : interaction.type === "carousel"
+                ? targetVisible && await carouselState() !== initialCarouselState
+                : targetVisible;
           if (!opened) {
             const restored = await restoreInteraction().catch(() => false);
             interactionStateFailures.push({ url, type: interaction.type, name: interaction.name, trigger: interaction.selector, reason: restored ? "The trigger did not expose its expected controlled state." : "The trigger did not expose the expected state and could not be safely restored; remaining states were skipped." });
@@ -524,7 +590,7 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
   const incomplete: Array<{ url: string; reason: string; stage?: "navigation" | "audit"; attempts?: number }> = [];
   const screenshotBudget = { remaining: options.screenshotLimit ?? 50 };
   let interactionStatesScanned = 0;
-  const interactionStateCounts: Record<InteractionStateType, number> = { disclosure: 0, tab: 0, dialog: 0 };
+  const interactionStateCounts: Record<InteractionStateType, number> = { disclosure: 0, tab: 0, dialog: 0, carousel: 0 };
   const interactionStateFailures: InteractionStateFailure[] = [];
   const skippedAssets = new Map<string, SkippedAsset>();
   const normalizedTargets = targets.map((target) => new URL(target).href);
@@ -582,7 +648,7 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
         const pageResult = await scanPage(page, url, timeout, options.captureScreenshots ?? true, screenshotBudget, axeTags, options.interactionStateLimit ?? 0, reportStage);
         findings.push(...pageResult.findings);
         interactionStatesScanned += pageResult.interactionStatesScanned;
-        for (const type of ["disclosure", "tab", "dialog"] as const) interactionStateCounts[type] += pageResult.interactionStateCounts[type];
+        for (const type of ["disclosure", "tab", "dialog", "carousel"] as const) interactionStateCounts[type] += pageResult.interactionStateCounts[type];
         interactionStateFailures.push(...pageResult.interactionStateFailures);
         if (options.crawl) {
           for (const href of pageResult.links) {

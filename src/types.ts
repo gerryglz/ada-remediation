@@ -2,7 +2,7 @@ export type Severity = "critical" | "serious" | "moderate" | "minor";
 export type Confidence = "high" | "medium" | "low";
 export type FindingKind = "automatic" | "manual-review";
 export type WcagLevel = "A" | "AA" | "AAA";
-export type InteractionStateType = "disclosure" | "tab" | "dialog";
+export type InteractionStateType = "disclosure" | "tab" | "dialog" | "carousel";
 
 export interface InteractionStateFailure {
   url: string;
