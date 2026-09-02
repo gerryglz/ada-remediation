@@ -91,11 +91,11 @@ Do not reuse an authenticated Playwright storage-state file unless it is still a
 
 ## Release verification
 
-Before the private `v0.2.0` tag is created, the release commit should pass:
+The private `v0.2.0` release passed the following checks before its package artifact was created:
 
 ```bash
 npm run release:check
 npm run test:e2e
 ```
 
-The tag-triggered GitHub workflow verifies that `package.json` is still marked private and that the tag exactly matches the package version. It creates a package artifact attached to the private GitHub release; it has no npm publication step.
+The tag-triggered GitHub workflow verified that `package.json` remained private and that the tag exactly matched the package version. It created `ada-remediation-0.2.0.tgz` as an artifact on the [private GitHub release](https://github.com/gerryglz/ada-remediation/releases/tag/v0.2.0); it did not publish to npm.
