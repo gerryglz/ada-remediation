@@ -19,6 +19,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - name: Verify private release metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node -e 'const pkg=require("./package.json"); if(pkg.private!==true) throw new Error("package.json must remain private"); if(process.env.RELEASE_TAG!==`v${pkg.version}`) throw new Error(`Tag ${process.env.RELEASE_TAG} does not match package version ${pkg.version}`);'
       - name: Build npm package
         id: package
         shell: bash

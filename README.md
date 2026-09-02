@@ -2,7 +2,7 @@
 
 `ada-assistant` is an open-source command-line tool for finding accessibility problems in website source code and rendered web pages. It combines source-aware HTML checks with Playwright and axe-core, produces reviewable reports, and previews a deliberately small set of semantics-preserving fixes.
 
-Version `0.1.0` is the initial release. See [CHANGELOG.md](CHANGELOG.md) for its included capabilities and known limitations.
+Version `0.2.0` adds the repeatable accessibility review workflow described in [CHANGELOG.md](CHANGELOG.md). If you are updating an existing checkout, follow the backup-first [upgrade and recovery guide](docs/UPGRADING.md).
 
 The repository and GitHub releases are currently private, and the package is intentionally marked private so it cannot be published to npm accidentally. Install and run it from an authorized checkout for now.
 
@@ -21,6 +21,8 @@ npm run build
 ```
 
 The examples below use `node dist/cli.js`, which works directly from a built checkout. If you want the shorter `ada-assistant` command, run `npm link` once and substitute `ada-assistant` for `node dist/cli.js` in any example.
+
+Existing local history is retained during a normal update. Version 0.2 reads history-wrapper schema `1.0` through an explicit migration and writes schema `1.1` when a migrated review is next saved. The downloaded report schema remains `1.0` for compatibility. Back up the history directory before pulling the update; see [Upgrade from 0.1 to 0.2](docs/UPGRADING.md#upgrade-from-01-to-02).
 
 ## Start here: use the visual dashboard
 

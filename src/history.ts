@@ -8,14 +8,23 @@ export type FindingHistoryStatus = "new" | "existing";
 
 export type RunReview = ScanReview;
 
+export const HISTORY_SCHEMA_VERSION = "1.1" as const;
+type CompatibleHistorySchemaVersion = "1.0" | typeof HISTORY_SCHEMA_VERSION;
+
 export interface SavedScanRun {
-  schemaVersion: "1.0";
+  schemaVersion: typeof HISTORY_SCHEMA_VERSION;
   id: string;
   targetKey: string;
   savedAt: string;
   result: ScanResult;
   review: RunReview;
 }
+
+type CompatibleRunReview = Partial<RunReview> & { notes: string; completedManualIds?: string[] };
+type CompatibleSavedScanRun = Omit<SavedScanRun, "schemaVersion" | "review"> & {
+  schemaVersion: CompatibleHistorySchemaVersion;
+  review: CompatibleRunReview;
+};
 
 export interface ScanRunSummary {
   id: string;
@@ -62,15 +71,17 @@ export function websiteKey(target: string): string {
   }
 }
 
-function isSavedScanRun(value: unknown): value is SavedScanRun {
+function isCompatibleSavedScanRun(value: unknown): value is CompatibleSavedScanRun {
   if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<SavedScanRun>;
-  return candidate.schemaVersion === "1.0"
+  const candidate = value as Partial<CompatibleSavedScanRun>;
+  return (candidate.schemaVersion === "1.0" || candidate.schemaVersion === HISTORY_SCHEMA_VERSION)
     && typeof candidate.id === "string"
     && typeof candidate.targetKey === "string"
     && typeof candidate.savedAt === "string"
+    && candidate.result?.schemaVersion === "1.0"
     && Boolean(candidate.result?.metadata)
     && Array.isArray(candidate.result?.findings)
+    && Array.isArray(candidate.result?.manualChecks)
     && typeof candidate.review?.notes === "string"
     && (Boolean(candidate.review?.manualTasks && typeof candidate.review.manualTasks === "object")
       || Array.isArray((candidate.review as RunReview & { completedManualIds?: string[] })?.completedManualIds));
@@ -102,8 +113,8 @@ function findingsOverlap(left: Finding, right: Finding): boolean {
   return [...findingKeys(left)].some((key) => rightKeys.has(key));
 }
 
-function normalizeRun(run: SavedScanRun): SavedScanRun {
-  const rawReview = run.review as RunReview & { completedManualIds?: string[] };
+function migrateRun(run: CompatibleSavedScanRun): SavedScanRun {
+  const rawReview = run.review;
   const allowedManualIds = new Set(run.result.manualChecks.map((check) => check.id));
   const manualTasks: Record<string, ManualTaskReview> = {};
   if (rawReview.manualTasks && typeof rawReview.manualTasks === "object") {
@@ -127,7 +138,11 @@ function normalizeRun(run: SavedScanRun): SavedScanRun {
       if (allowedFindingIds.has(fingerprint) && sanitized) findings[fingerprint] = sanitized;
     }
   }
-  return { ...run, review: { manualTasks, findings, notes: rawReview.notes.trim().slice(0, 10_000) } };
+  return {
+    ...run,
+    schemaVersion: HISTORY_SCHEMA_VERSION,
+    review: { manualTasks, findings, notes: rawReview.notes.trim().slice(0, 10_000) },
+  };
 }
 
 function summary(run: SavedScanRun): ScanRunSummary {
@@ -191,7 +206,7 @@ export async function saveScanRun(result: ScanResult, directory = defaultHistory
     }
   }
   const run: SavedScanRun = {
-    schemaVersion: "1.0",
+    schemaVersion: HISTORY_SCHEMA_VERSION,
     id: randomUUID(),
     targetKey: websiteKey(result.metadata.target),
     savedAt: new Date().toISOString(),
@@ -205,7 +220,7 @@ export async function saveScanRun(result: ScanResult, directory = defaultHistory
 export async function getScanRun(id: string, directory = defaultHistoryDirectory()): Promise<SavedScanRun | undefined> {
   try {
     const parsed = JSON.parse(await readFile(runPath(directory, id), "utf8")) as unknown;
-    return isSavedScanRun(parsed) ? normalizeRun(parsed) : undefined;
+    return isCompatibleSavedScanRun(parsed) ? migrateRun(parsed) : undefined;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
@@ -224,7 +239,7 @@ export async function listScanRuns(target?: string, directory = defaultHistoryDi
   const runs = await Promise.all(names.filter((name) => /^[a-f0-9-]{36}\.json$/i.test(name)).map(async (name) => {
     try {
       const parsed = JSON.parse(await readFile(join(directory, name), "utf8")) as unknown;
-      return isSavedScanRun(parsed) ? normalizeRun(parsed) : undefined;
+      return isCompatibleSavedScanRun(parsed) ? migrateRun(parsed) : undefined;
     } catch {
       return undefined;
     }
