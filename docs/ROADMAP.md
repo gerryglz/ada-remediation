@@ -34,11 +34,11 @@ Version 0.2 turns scan output into a repeatable accessibility review workflow. A
 - Add a conservative carousel recipe only after its activation and restoration rules can avoid automatic, destructive, or nondeterministic behavior — completed.
 - Continue avoiding form submission, arbitrary links, destructive actions, and nondeterministic interactions.
 
-### 5. Private 0.2 release — in progress
+### 5. Private 0.2 release — completed
 
 - Add history/schema migration and export regression coverage — completed.
 - Document upgrade and recovery steps — completed.
-- Create a private GitHub tag and release; do not publish the package to npm.
+- Create a private GitHub tag and release; do not publish the package to npm — completed as [`v0.2.0`](https://github.com/gerryglz/ada-remediation/releases/tag/v0.2.0).
 
 ## Later candidates
 

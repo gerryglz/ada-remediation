@@ -2,7 +2,7 @@
 
 `ada-assistant` is an open-source command-line tool for finding accessibility problems in website source code and rendered web pages. It combines source-aware HTML checks with Playwright and axe-core, produces reviewable reports, and previews a deliberately small set of semantics-preserving fixes.
 
-Version `0.2.0` adds the repeatable accessibility review workflow described in [CHANGELOG.md](CHANGELOG.md). If you are updating an existing checkout, follow the backup-first [upgrade and recovery guide](docs/UPGRADING.md).
+Version `0.2.0` adds the repeatable accessibility review workflow described in [CHANGELOG.md](CHANGELOG.md) and is available through the private [`v0.2.0` GitHub release](https://github.com/gerryglz/ada-remediation/releases/tag/v0.2.0). If you are updating an existing checkout, follow the backup-first [upgrade and recovery guide](docs/UPGRADING.md).
 
 The repository and GitHub releases are currently private, and the package is intentionally marked private so it cannot be published to npm accidentally. Install and run it from an authorized checkout for now.
 
