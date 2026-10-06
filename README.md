@@ -83,7 +83,6 @@ Only scan systems you own or are authorized to test.
 
 - [Guide](docs/GUIDE.md): the dashboard, every scan method, reports, fixes, baselines, and history.
 - [GitHub Actions example](docs/github-actions.yml): scan on every pull request.
-- [Changelog](CHANGELOG.md).
 
 ## Development
 

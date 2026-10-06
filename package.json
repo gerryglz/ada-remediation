@@ -16,8 +16,7 @@
     "ada-assistant": "dist/cli.js"
   },
   "files": [
-    "dist",
-    "CHANGELOG.md"
+    "dist"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
