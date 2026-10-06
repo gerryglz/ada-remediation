@@ -7,7 +7,7 @@ import { axeTagsForWcagLevel, DEFAULT_WCAG_LEVEL, wcagLevelFromTags } from "../w
 import { manualReviewChecklist } from "../manual.js";
 import { buildRemediationGuidance, buildRemediationPrompt, findingIssueCategory, remediationSummary } from "../guidance.js";
 import { buildFindingGroups, consolidateCommonFindings } from "../findings.js";
-import { navigateForAccessibilityScan, PageNavigationError } from "../navigation.js";
+import { crawlKey, navigateForAccessibilityScan, PageNavigationError } from "../navigation.js";
 import { formatHtmlSnippet } from "../html.js";
 
 const require = createRequire(import.meta.url);
@@ -601,7 +601,7 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
     if (skippedAsset) skippedAssets.set(target, skippedAsset);
     else {
       queued.push(target);
-      enqueued.add(target);
+      enqueued.add(crawlKey(target));
     }
   }
   const allowedOrigins = new Set(normalizedTargets.map((target) => new URL(target).origin));
@@ -660,9 +660,9 @@ export async function scanUrls(targets: string[], options: UrlScanOptions = {}):
                 skippedAssets.set(candidate.href, skippedAsset);
                 continue;
               }
-              if (["http:", "https:"].includes(candidate.protocol) && allowedOrigins.has(candidate.origin) && !visited.has(candidate.href) && !enqueued.has(candidate.href)) {
+              if (["http:", "https:"].includes(candidate.protocol) && allowedOrigins.has(candidate.origin) && !visited.has(candidate.href) && !enqueued.has(crawlKey(candidate.href))) {
                 queued.push(candidate.href);
-                enqueued.add(candidate.href);
+                enqueued.add(crawlKey(candidate.href));
               }
             } catch {
               // Ignore malformed or non-URL href values.

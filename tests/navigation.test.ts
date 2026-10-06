@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { navigateForAccessibilityScan, PageNavigationError } from "../src/navigation.js";
+import { crawlKey, navigateForAccessibilityScan, PageNavigationError } from "../src/navigation.js";
 
 describe("rendered page navigation", () => {
   it("uses DOM-ready navigation and retries a transient failure once", async () => {
@@ -28,5 +28,14 @@ describe("rendered page navigation", () => {
     expect(error).toBeInstanceOf(PageNavigationError);
     expect(error.attempts).toBe(2);
     expect(error.message).toContain("connection refused");
+  });
+});
+
+describe("crawl page identity", () => {
+  it("treats a directory and its index file as the same page", () => {
+    expect(crawlKey("https://example.com/index.html")).toBe(crawlKey("https://example.com/"));
+    expect(crawlKey("https://example.com/docs/index.htm#top")).toBe(crawlKey("https://example.com/docs/"));
+    expect(crawlKey("https://example.com/about.html")).not.toBe(crawlKey("https://example.com/"));
+    expect(crawlKey("https://example.com/?page=2")).not.toBe(crawlKey("https://example.com/"));
   });
 });

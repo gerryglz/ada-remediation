@@ -5,6 +5,7 @@ import createIgnore from "ignore";
 import { parse } from "parse5";
 import { LEGAL_NOTICE, type Finding, type ScanResult, type SafeFix } from "../types.js";
 import { createFinding } from "../rules.js";
+import { buildRemediationGuidance, buildRemediationPrompt, findingIssueCategory } from "../guidance.js";
 import { manualReviewChecklist } from "../manual.js";
 import { TOOL_VERSION } from "../utils.js";
 
@@ -208,6 +209,22 @@ export async function scanRepository(target: string, options: RepositoryScanOpti
     findings.push(...inspectDocument(document, source, relativeFile));
   }
 
+  // Give source findings the same guidance, category and prompt the rendered scan produces, so reports read the same.
+  const detailedFindings = findings.map((finding) => {
+    const guidance = buildRemediationGuidance({
+      ruleId: finding.ruleId,
+      title: finding.title,
+      failureSummary: finding.explanation,
+      evidence: finding.evidence,
+      selector: finding.location.selector ?? finding.ruleId,
+      codeSuggestion: finding.codeSuggestion,
+    });
+    // The rule's own remediation is the most specific instruction, so it leads the change list.
+    const remediationGuidance = { ...guidance, change: [finding.remediation, ...guidance.change.filter((item) => item !== finding.remediation)] };
+    const detailed = { ...finding, remediationGuidance, issueCategory: findingIssueCategory(finding) };
+    return { ...detailed, remediationPrompt: buildRemediationPrompt(detailed) };
+  });
+
   return {
     schemaVersion: "1.0",
     metadata: {
@@ -218,7 +235,7 @@ export async function scanRepository(target: string, options: RepositoryScanOpti
       toolVersion: TOOL_VERSION,
       pagesOrFilesScanned: files.length,
     },
-    findings,
+    findings: detailedFindings,
     manualChecks: manualReviewChecklist("AA"),
     notice: LEGAL_NOTICE,
   };
