@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- A small demonstration site with deliberate accessibility errors in `demo-site/`. Run `npm run demo` and scan `http://127.0.0.1:4180/` to try the dashboard without touching a real website.
 - Repository source findings now include inspect, change, and verify guidance, an issue category, and an AI remediation prompt, matching the detail of rendered-scan findings.
 
 ### Changed
@@ -14,10 +15,23 @@ All notable changes to this project will be documented in this file.
 - Dashboard sidebar redesigned: tabs and filter chips carry their own counts, empty filter values are hidden, and each finding row is a severity dot, a title, and one line of text metadata with no badges. The **Show filters** toggle and the finding-count line are gone.
 - Dashboard detail pane redesigned to be fix-first: the location, failed condition, what to change, rendered HTML context, and screenshot stay visible, and supporting material moves into collapsed sections. Severity is the only color-coded attribute; all other badges became text. Same-rule elements in an issue set are compact rows with one combined AI prompt.
 - Downloadable HTML report redesigned to match the dashboard, sharing its style sheet. Report totals, filters, and review dispositions are text and chips instead of metric tiles and badges.
-- Review dispositions inside a component are set per component, per issue set, or per element; reviewer notes are recorded per issue set or per component.
+- Review dispositions and notes are recorded per finding or per component through one **Review** dropdown, and manual tasks use one **Outcome** dropdown. The sidebar keeps a single severity filter; the WCAG-level and review filters are removed.
+
+- Dashboard and report use a light blue palette with one blue accent in place of the cream theme. Detail sections are white cards on a tinted page, each one collapsible; the fix-first sections start open.
+- Affected-element rows lead with the element's visible name instead of its markup, and the likely shared owner is three labelled facts. An issue with several elements lists their markup once, one line each, instead of repeating the parent markup per element; a single element's context highlights its own line.
+- Comparison counts are shown only when an earlier run exists to compare with.
+- The dashboard and HTML report group findings only when they share an owning component. Theme groups ("issue patterns") are listed as individual findings, each with its own AI prompt, instead of a combined one. JSON and terminal output still include them.
+- Dashboard and report copy shortened for skimming: **What to change** opens with one bold line naming the fix, failed conditions are a bulleted list with three shown, help text is one sentence, and an element on several pages shows a page count instead of a list of links.
+- Run notices (pages that could not be tested, skipped interactive states, skipped assets) are one collapsed line each, and the totals state failed pages next to tested pages.
+- A component with a single issue shows that issue directly instead of nesting it in a card, and no longer repeats its guidance as shared corrections. Zero comparison counts and the header subtitle are removed.
+- Reviewer notes save when their field loses focus, so the **Save review** button is gone. Unsaved notes are also sent when the page closes.
+- The scan button reads **Scan site** while crawling is on, the URL field no longer starts with a prefilled address, and the dashboard has a skip link.
 
 ### Fixed
 
+- A failure to save a scan to history is now shown with the results instead of in the collapsed scan form, where it was never seen.
+- Keyboard focus moves to the results when a scan finishes instead of staying on the hidden scan button.
+- Screenshots reserve their space while loading, and scrolling to a selected finding respects reduced-motion settings.
 - The dashboard no longer shows the **Authenticated scan** label on public scans.
 
 - Same-origin crawls no longer scan a directory URL and its `index.html` or `index.htm` file as two pages, which double-counted every finding on that page.

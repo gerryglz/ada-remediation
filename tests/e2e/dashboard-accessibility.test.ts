@@ -124,7 +124,7 @@ describe("dashboard self-accessibility gate", () => {
     await assertDashboardAccessibility(reportPage, "downloadable HTML report");
     await reportPage.close();
 
-    const firstIssue = page.locator("#finding-detail .child").first();
+    const firstIssue = page.locator("#finding-detail details.more").first();
     const childSummary = firstIssue.locator("summary").first();
     const openBefore = (await firstIssue.getAttribute("open")) !== null;
     await childSummary.focus();
@@ -134,14 +134,14 @@ describe("dashboard self-accessibility gate", () => {
     await expect(firstIssue.getAttribute("open")).resolves.not.toBeNull();
     await assertDashboardAccessibility(page, "expanded grouped finding");
 
-    const screenshotButton = firstIssue.locator(".shot").first();
+    const screenshotButton = page.locator("#finding-detail .shot").first();
     await screenshotButton.click();
     await page.locator("#image-dialog[open]").waitFor();
     await assertDashboardAccessibility(page, "visual evidence dialog");
     await page.keyboard.press("Escape");
     await expect(screenshotButton.evaluate((element) => element === document.activeElement)).resolves.toBe(true);
 
-    await expect(page.locator("#filter-groups").isVisible()).resolves.toBe(true);
+    await expect(page.locator("#filters").isVisible()).resolves.toBe(true);
     const severityFilter = page.locator("#filters .chip").nth(1);
     await severityFilter.focus();
     await page.keyboard.press("Enter");

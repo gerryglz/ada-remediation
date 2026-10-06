@@ -70,6 +70,8 @@ describe("dashboard reviewer workflow", () => {
     await page.getByRole("button", { name: "Scan page" }).click();
 
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
+    await expect(page.locator("#results-heading").evaluate((element) => element === document.activeElement), "focus moves to the results when a scan finishes").resolves.toBe(true);
+    await expect(page.locator("#scan-button").isHidden()).resolves.toBe(true);
     await expect(page.locator("#result-source").getAttribute("href")).resolves.toBe(fixture.url);
     await expect(page.locator("#result-auth").isHidden()).resolves.toBe(true);
     await expect(page.locator("#notice").textContent()).resolves.toContain("Automated results cannot certify");
@@ -79,6 +81,8 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("What to change");
     await expect(page.locator("#finding-detail [class*=badge]").count()).resolves.toBe(0);
     await expect(page.locator("#finding-detail .pill").count()).resolves.toBe(1);
+    await expect(page.locator("#finding-detail .chip").count()).resolves.toBe(0);
+    await expect(page.locator(".sidebar-head .chips:not([hidden])").count()).resolves.toBe(1);
     await expect(page.locator("#finding-detail code, #finding-detail pre").first().textContent()).resolves.toBeTruthy();
 
     const jsonResponse = await page.request.get(`${dashboard.url}/api/report.json`);
@@ -96,7 +100,7 @@ describe("dashboard reviewer workflow", () => {
     });
     expect(report.findings.length).toBeGreaterThan(0);
     expect(report.findings[0].renderedHtmlContext.html).toContain("\n");
-    await expect(page.locator('#summary [data-stat="new"]').textContent()).resolves.toBe(String(report.findings.length));
+    await expect(page.locator('#summary [data-stat="new"]').count(), "a first scan has no earlier run, so no comparison counts are shown").resolves.toBe(0);
     const menuFindings = report.findings.filter((finding: { ruleId: string; component?: { name?: string } }) => finding.ruleId === "aria-required-parent" && finding.component?.name === "Primary navigation");
     expect(menuFindings).toHaveLength(2);
     expect(menuFindings[0].component.remediationTarget).toMatchObject({ selector: "ul.primary-menu", currentRole: "presentation" });
@@ -110,15 +114,16 @@ describe("dashboard reviewer workflow", () => {
     await expect(parentIssueCard.locator(".element").count()).resolves.toBe(2);
     await expect(parentIssueCard.locator(".owner").textContent()).resolves.toContain("ul.primary-menu");
     await expect(parentIssueCard.locator(".owner").textContent()).resolves.toContain("Current role");
-    await expect(page.locator("#filter-groups").isVisible()).resolves.toBe(true);
+    await expect(page.locator("#filters").isVisible()).resolves.toBe(true);
 
     const selectedReviewFingerprints = report.findingGroups?.find((group: { findingFingerprints: string[] }) => group.findingFingerprints.length > 1)?.findingFingerprints
       ?? [report.findings[0].fingerprint];
-    await page.locator("#finding-detail .review").first().getByRole("button", { name: "Action required", exact: true }).click();
+    await expect(page.locator("#finding-detail .review-select").count()).resolves.toBe(1);
+    await page.locator("#finding-detail .review-select").selectOption("action-required");
     await page.locator("#save-state").getByText("Saved locally").waitFor();
     await page.locator("#finding-detail .review-notes > summary").first().click();
     await page.locator("#finding-detail .review-notes textarea").first().fill("Update the shared component and retest every affected page.");
-    await page.getByRole("button", { name: "Save review" }).click();
+    await page.locator("#finding-detail .review-notes textarea").first().blur();
     await page.locator("#save-state").getByText("Saved locally").waitFor();
     const findingReviewJsonHref = await page.locator("#json-download").getAttribute("href");
     const findingReviewJson = await (await page.request.get(`${dashboard.url}${findingReviewJsonHref}`)).json();
@@ -128,24 +133,22 @@ describe("dashboard reviewer workflow", () => {
         notes: "Update the shared component and retest every affected page.",
       });
     }
-    const actionRequiredChip = page.locator("#finding-review-filters").getByRole("button", { name: /^Action required/ });
-    await expect(actionRequiredChip.textContent()).resolves.toBe(`Action required ${selectedReviewFingerprints.length}`);
-    await actionRequiredChip.click();
-    await expect(actionRequiredChip.getAttribute("aria-pressed")).resolves.toBe("true");
-    await expect(page.locator("#finding-list .row").first().textContent()).resolves.toContain("Action required");
-    await page.locator("#finding-review-filters").getByRole("button", { name: /^All reviews/ }).click();
+    await expect(page.locator("#finding-list .row").filter({ hasText: "Action required" }).count()).resolves.toBeGreaterThan(0);
 
     await page.getByRole("button", { name: "Manual review" }).click();
     await expect(page.locator("#manual-tab").getAttribute("aria-pressed")).resolves.toBe("true");
     await expect(page.locator("#manual-status-filters").isVisible()).resolves.toBe(true);
     const manualTaskCount = await page.locator("#finding-list .row.manual").count();
     expect(manualTaskCount).toBeGreaterThan(0);
-    await page.locator("#finding-detail").getByRole("button", { name: "Pass", exact: true }).click();
+    await page.locator("#finding-detail .review-select").selectOption("pass");
     await page.locator("#save-state").getByText("Saved locally").waitFor();
     await page.locator("#finding-detail textarea").fill("Keyboard access and focus order verified with NVDA.");
+    await page.locator("#finding-detail textarea").blur();
+    await page.locator("#save-state").getByText("Saved locally").waitFor();
+    await expect(page.getByRole("button", { name: "Save review" }).count()).resolves.toBe(0);
     await page.getByRole("button", { name: "Notes and comparison" }).click();
     await page.locator("#run-notes").fill("Keyboard review assigned to the accessibility team.");
-    await page.getByRole("button", { name: "Save review" }).click();
+    await page.locator("#run-notes").blur();
     await page.locator("#save-state").getByText("Saved locally").waitFor();
     const reviewedJsonHref = await page.locator("#json-download").getAttribute("href");
     const reviewedJson = await (await page.request.get(`${dashboard.url}${reviewedJsonHref}`)).json();
@@ -172,7 +175,7 @@ describe("dashboard reviewer workflow", () => {
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
     await expect(page.locator('#summary [data-stat="new"]').textContent()).resolves.toBe("0");
     await expect(page.locator('#summary [data-stat="existing"]').textContent()).resolves.toBe(String(report.findings.length));
-    await expect(page.locator("#finding-detail .meta").first().textContent()).resolves.toMatch(/existing/i);
+    await expect(page.locator("#finding-detail .meta").first().textContent(), "per-item comparison words appear only when a run mixes new and existing findings").resolves.not.toMatch(/existing/i);
     await expect(page.locator("#finding-list .row").filter({ hasText: "Action required" }).count()).resolves.toBeGreaterThan(0);
 
     await page.getByRole("button", { name: "Scan history" }).click();
@@ -184,7 +187,7 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#history-list .history-row").count()).resolves.toBe(1);
     await page.locator("#history-list .history-row").first().getByRole("button", { name: /Open scan/ }).click();
     await page.getByRole("button", { name: "Manual review" }).click();
-    await expect(page.locator('#finding-detail .chip[aria-pressed="true"]').textContent()).resolves.toBe("Pass");
+    await expect(page.locator("#finding-detail .review-select").inputValue()).resolves.toBe("pass");
     await expect(page.locator("#finding-detail textarea").inputValue()).resolves.toBe("Keyboard access and focus order verified with NVDA.");
     await expect(page.locator("#run-notes").inputValue()).resolves.toBe("Keyboard review assigned to the accessibility team.");
     expect(consoleErrors).toEqual([]);
@@ -204,7 +207,7 @@ describe("dashboard reviewer workflow", () => {
     await page.locator("#crawl").check();
     await page.locator("#max-pages").fill("3");
     await page.locator("#screenshots").uncheck();
-    await page.getByRole("button", { name: "Scan page" }).click();
+    await page.getByRole("button", { name: "Scan site" }).click();
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
 
     const report = await (await page.request.get(`${dashboard.url}/api/report.json`)).json();
@@ -315,7 +318,11 @@ describe("dashboard reviewer workflow", () => {
     });
 
     const disclosureGroup = report.findingGroups.find((group: { findingFingerprints: string[] }) => group.findingFingerprints.includes(disclosureFinding.fingerprint));
-    await page.locator("#finding-list .row.component").filter({ hasText: disclosureGroup.name }).click();
+    expect(disclosureGroup.kind, "these findings share a theme, not an owning component").toBe("pattern");
+    await expect(page.locator("#finding-list .row.component").filter({ hasText: disclosureGroup.name }).count(), "theme groups are not listed as components").resolves.toBe(0);
+    await page.locator(`#finding-list .row[data-key="${disclosureFinding.fingerprint}"]`).click();
+    await expect(page.locator("#finding-detail").textContent()).resolves.toContain("AI remediation prompt");
+    await expect(page.locator("#finding-detail").textContent()).resolves.not.toContain("Combined AI remediation prompt");
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Revealed interaction state");
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Disclosure");
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("#account-disclosure");
