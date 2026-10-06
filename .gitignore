@@ -9,4 +9,3 @@ ada-results.*
 !tests/fixtures/**/ada-results.*
 auth.json
 *-storage-state.json
-docs/

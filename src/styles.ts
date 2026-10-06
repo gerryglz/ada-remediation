@@ -3,7 +3,7 @@ export const sharedCss = `
     :root{--ink:#1b2540;--body:rgba(27,37,64,.84);--muted:#55637a;--line:#dde3f0;--line-strong:rgba(27,37,64,.36);--page:#f3f5fb;--raised:#fff;--tint:rgba(47,85,196,.07);--accent:#2f55c4;--accent-strong:#2446a8;--accent-soft:#eef2fc;--critical:#ab307e;--serious:#9a4e12;--moderate:#0e6e78;--minor:#5b6578;--sev:var(--minor);--mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
     *{box-sizing:border-box}
     [hidden]{display:none!important}
-    body{margin:0;font:14px/1.5 "Camera Plain Variable",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--page);-webkit-font-smoothing:antialiased}
+    body{margin:0;font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--page);-webkit-font-smoothing:antialiased}
     :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     a{color:var(--accent);text-underline-offset:2px}
     a:hover{text-decoration-thickness:2px}

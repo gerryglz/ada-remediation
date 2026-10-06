@@ -2,7 +2,7 @@
 
 ## Upgrade from 0.1 to 0.2
 
-Version 0.2 keeps the package and GitHub release private. It is installed from an authorized repository checkout and is not published to npm.
+Version 0.2 is installed from a repository checkout. The package is marked private so it cannot be published to npm by accident.
 
 The dashboard stores scan history outside the repository. Before updating, stop the dashboard and copy that directory to a dated backup location:
 
