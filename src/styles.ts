@@ -1,11 +1,11 @@
 // Visual language shared by the local dashboard and the downloadable HTML report.
 export const sharedCss = `
-    :root{--ink:#1c1c1c;--body:rgba(28,28,28,.82);--muted:#5f5f5d;--line:#e6e3da;--line-strong:rgba(28,28,28,.4);--cream:#f7f4ed;--raised:#fcfbf8;--tint:rgba(28,28,28,.05);--critical:#ab307e;--serious:#9a4e12;--moderate:#2f5bb7;--minor:#6b6b68;--sev:var(--minor);--mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+    :root{--ink:#1b2540;--body:rgba(27,37,64,.84);--muted:#55637a;--line:#dde3f0;--line-strong:rgba(27,37,64,.36);--page:#f3f5fb;--raised:#fff;--tint:rgba(47,85,196,.07);--accent:#2f55c4;--accent-strong:#2446a8;--accent-soft:#eef2fc;--critical:#ab307e;--serious:#9a4e12;--moderate:#0e6e78;--minor:#5b6578;--sev:var(--minor);--mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
     *{box-sizing:border-box}
     [hidden]{display:none!important}
-    body{margin:0;font:14px/1.5 "Camera Plain Variable",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--cream);-webkit-font-smoothing:antialiased}
-    :focus-visible{outline:2px solid var(--moderate);outline-offset:2px}
-    a{color:var(--ink);text-underline-offset:2px}
+    body{margin:0;font:14px/1.5 "Camera Plain Variable",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--page);-webkit-font-smoothing:antialiased}
+    :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+    a{color:var(--accent);text-underline-offset:2px}
     a:hover{text-decoration-thickness:2px}
     h1,h2,h3,h4,p{margin:0}
     code,pre{font-family:var(--mono)}
@@ -21,7 +21,7 @@ export const sharedCss = `
     .chips{display:flex;flex-wrap:wrap;gap:6px}
     .chip{height:28px;padding:0 10px;border:1px solid var(--line);border-radius:999px;background:var(--raised);font-size:13px;cursor:pointer;transition:background-color .15s ease-out,border-color .15s ease-out}
     .chip:hover{border-color:var(--line-strong)}
-    .chip[aria-pressed=true]{border-color:var(--ink);background:var(--ink);color:var(--raised)}
+    .chip[aria-pressed=true]{border-color:var(--accent);background:var(--accent);color:var(--raised)}
     .chip[aria-pressed=true] .count{color:inherit;opacity:.75}
     .dot{width:8px;height:8px;margin-top:6px;border-radius:50%;background:var(--sev)}
     .row-main{display:grid;gap:2px;min-width:0}
@@ -56,13 +56,13 @@ export const sharedCss = `
     .more>summary:hover{color:#000}
     .more-body{display:grid;gap:10px;padding:0 0 16px}
     .more-body .btn{justify-self:start}
-    .image-dialog{width:min(96vw,1500px);max-width:none;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--cream);overscroll-behavior:contain}
+    .image-dialog{width:min(96vw,1500px);max-width:none;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--page);overscroll-behavior:contain}
     .image-dialog::backdrop{background:rgba(28,28,28,.78)}
     .dialog-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px}
     .image-dialog img{display:block;width:100%;height:auto;max-height:84vh;object-fit:contain;border-radius:6px;outline:1px solid rgba(0,0,0,.1);outline-offset:-1px}
     @media(prefers-reduced-motion:reduce){*{transition:none!important}}
     .detail .muted,.detail .note{color:var(--muted)}
-    .child{margin-top:8px;border:1px solid var(--line);border-radius:10px}
+    .child{margin-top:8px;border:1px solid var(--line);border-radius:10px;background:var(--raised)}
     .child[open]{border-color:var(--line-strong)}
     .child>summary{display:grid;grid-template-columns:8px minmax(0,1fr);gap:10px;padding:10px 12px;cursor:pointer;list-style:none}
     .child>summary::-webkit-details-marker{display:none}

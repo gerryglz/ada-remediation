@@ -49,7 +49,11 @@ Severity is the only color-coded attribute in the dashboard and the HTML report.
 - **Blue** (`#2f5bb7`): Moderate, and the focus ring.
 - **Gray** (`#6b6b68`): Minor.
 
-Do not introduce further accent colors, badges, tinted cards, or gradient dividers. WCAG level, issue category, component type, review disposition, comparison status, manual outcome, and counts are plain text metadata.
+The dashboard and report use a light blue palette instead of the cream described elsewhere in this document: page `#f3f5fb`, white (`#fff`) cards, bars and sidebar, navy text `#1b2540`, borders `#dde3f0`, and one blue accent `#2f55c4` for the primary action, pressed chips, links, the selected sidebar row and the focus ring. A soft accent tint `#eef2fc` marks the **What to change** card, the selected row and run notices. Moderate severity is teal (`#0e6e78`) so it cannot be mistaken for the accent.
+
+Every section of the detail pane is a card and a native disclosure. **Failed condition**, **What to change**, the likely owner, contrast evidence, **Rendered HTML context**, the screenshot and affected elements start open; supporting sections start closed. Inside an issue card, sections are flat rows rather than nested cards.
+
+Do not introduce further accent colors, badges, or gradient dividers. WCAG level, issue category, component type, review disposition, comparison status, manual outcome, and counts are plain text metadata.
 
 ### Inset Shadows
 - **Button Inset** (`rgba(255,255,255,0.2) 0px 0.5px 0px 0px inset, rgba(0,0,0,0.2) 0px 0px 0px 0.5px inset, rgba(0,0,0,0.05) 0px 1px 2px 0px`): The signature multi-layer inset shadow on dark buttons.

@@ -84,9 +84,9 @@ export function dashboardHtml(): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <meta name="theme-color" content="#f7f4ed">
+  <meta name="theme-color" content="#f3f5fb">
   <title>ADA Assistant dashboard</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231c1c1c'/%3E%3Cpath d='M18 46 29 17h6l11 29h-7l-2-7H27l-2 7Zm11-13h6l-3-9Z' fill='%23fcfbf8'/%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232f55c4'/%3E%3Cpath d='M18 46 29 17h6l11 29h-7l-2-7H27l-2 7Zm11-13h6l-3-9Z' fill='%23ffffff'/%3E%3C/svg%3E">
   <style>
     ${sharedCss}
     html,body{height:100%}
@@ -96,18 +96,18 @@ export function dashboardHtml(): string {
     main:focus{outline:0}
     .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 
-    .btn.solid{height:36px;padding:0 18px;border-color:var(--ink);background:var(--ink);color:var(--raised);font-size:14px}
-    .btn.solid:hover{background:#000}
+    .btn.solid{height:36px;padding:0 18px;border-color:var(--accent);background:var(--accent);color:var(--raised);font-size:14px}
+    .btn.solid:hover{background:var(--accent-strong)}
     .btn.solid:disabled{opacity:.55;cursor:wait}
     .field input:not([type=checkbox]),.field select,.field textarea{height:36px;padding:0 10px;border:1px solid var(--line-strong);border-radius:6px;background:var(--raised);font:inherit;color:var(--ink)}
     .check{display:inline-flex;align-items:center;gap:7px;min-height:36px;cursor:pointer}
-    .check input[type=checkbox]{width:16px;height:16px;margin:0;accent-color:var(--ink)}
+    .check input[type=checkbox]{width:16px;height:16px;margin:0;accent-color:var(--accent)}
 
-    .app-header{display:flex;align-items:center;gap:12px;height:48px;padding:0 20px;border-bottom:1px solid var(--line);flex:none}
+    .app-header{display:flex;align-items:center;gap:12px;height:48px;padding:0 20px;border-bottom:1px solid var(--line);background:var(--raised);flex:none}
     .app-header h1{margin-right:auto;font-size:15px;font-weight:600}
     main{flex:1;min-height:0;display:flex;flex-direction:column}
 
-    .scan-panel{padding:14px 20px;border-bottom:1px solid var(--line);flex:none}
+    .scan-panel{padding:14px 20px;border-bottom:1px solid var(--line);background:var(--raised);flex:none}
     .scan-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 16px}
     .field.grow{flex:1 1 320px;min-width:0}
     .field.grow input,.field.grow textarea{width:100%}
@@ -117,8 +117,8 @@ export function dashboardHtml(): string {
     .field.auth .note{display:block;margin-top:4px}
     #max-pages{width:64px;height:28px}
     .scan-progress{margin-top:12px}
-    .progress-track{height:4px;border-radius:999px;background:rgba(28,28,28,.12);overflow:hidden}
-    .progress-fill{display:block;height:100%;background:var(--ink);transform:scaleX(0);transform-origin:left;transition:transform .25s ease-out}
+    .progress-track{height:4px;border-radius:999px;background:var(--line);overflow:hidden}
+    .progress-fill{display:block;height:100%;background:var(--accent);transform:scaleX(0);transform-origin:left;transition:transform .25s ease-out}
     .progress-copy{display:flex;justify-content:space-between;gap:16px;margin-top:6px;font-size:13px;color:var(--body)}
     .progress-copy span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .progress-copy strong{font-variant-numeric:tabular-nums}
@@ -132,7 +132,7 @@ export function dashboardHtml(): string {
     .empty-state p{max-width:46ch;text-wrap:pretty}
 
     .results{flex:1;min-height:0;display:flex;flex-direction:column}
-    .results-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;padding:10px 20px;border-bottom:1px solid var(--line);flex:none}
+    .results-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;padding:10px 20px;border-bottom:1px solid var(--line);background:var(--raised);flex:none}
     .results-id{display:flex;align-items:center;gap:10px;min-width:0}
     .result-source{min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .tag{flex:none;padding:1px 8px;border:1px solid var(--line-strong);border-radius:999px;font-size:12px;white-space:nowrap}
@@ -140,19 +140,19 @@ export function dashboardHtml(): string {
     .results-stats strong{color:var(--ink)}
     .results-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-left:auto}
     .save-state{font-size:12px;color:var(--muted)}
-    .run-review{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px 16px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--raised);flex:none}
+    .run-review{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px 16px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--accent-soft);flex:none}
     .run-review select{max-width:100%}
     .run-review textarea{height:auto;min-height:36px;max-height:110px;padding:7px 10px;resize:vertical}
     .run-review .note,.resolved{flex-basis:100%;margin:0}
     .resolved ul,.incomplete ul{margin:4px 0 0;padding-left:18px}
-    .incomplete{padding:10px 20px;border-bottom:1px solid var(--line);background:var(--raised);flex:none;max-height:30vh;overflow:auto}
+    .incomplete{padding:10px 20px;border-bottom:1px solid var(--line);background:var(--accent-soft);flex:none;max-height:30vh;overflow:auto}
     .incomplete li{overflow-wrap:anywhere}
     .incomplete p{margin:4px 0}
     .incomplete summary{font-weight:600;cursor:pointer}
     .incomplete>*+details{margin-top:6px}
 
     .workspace{flex:1;min-height:0;display:grid;grid-template-columns:340px minmax(0,1fr)}
-    .sidebar{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line)}
+    .sidebar{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line);background:var(--raised)}
     .sidebar-head{display:grid;gap:10px;padding:12px;border-bottom:1px solid var(--line)}
     .tabs{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;border-radius:9px;background:var(--tint)}
     .tabs button{height:30px;padding:0 6px;border:0;border-radius:6px;background:transparent;font-size:13px;white-space:nowrap;cursor:pointer;transition:background-color .15s ease-out}
@@ -163,7 +163,7 @@ export function dashboardHtml(): string {
     .list-empty{padding:24px 12px;color:var(--muted);text-wrap:pretty}
     .row{display:grid;grid-template-columns:8px minmax(0,1fr);gap:10px;width:100%;padding:9px 10px;border:0;border-radius:8px;background:transparent;font:inherit;color:var(--ink);text-align:left;cursor:pointer;transition:background-color .15s ease-out}
     .row:hover{background:var(--tint)}
-    .row[aria-current=true]{background:var(--raised);box-shadow:inset 0 0 0 1px var(--line-strong)}
+    .row[aria-current=true]{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
     .component>.dot{border-radius:2px}
     .row.manual{grid-template-columns:minmax(0,1fr)}
     .row.manual .dot{display:none}
@@ -172,6 +172,18 @@ export function dashboardHtml(): string {
     .detail>*{max-width:820px}
     .detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
     .detail-head>div{min-width:0}
+    .detail .more-list{display:grid;gap:12px;margin-top:20px;border-bottom:0}
+    .detail .more{border:1px solid var(--line);border-radius:10px;background:var(--raised)}
+    .detail .more>summary{padding:12px 16px}
+    .detail .more-body{padding:0 16px 16px}
+    .detail .more.fix{border-color:rgba(47,85,196,.3);background:var(--accent-soft)}
+    .detail .more.fail{border-left:3px solid var(--sev)}
+    .detail .more.fail p{font-weight:600;color:var(--ink)}
+    .detail .more.fail li{color:var(--ink)}
+    .detail .child-body .more-list{gap:0;margin-top:16px;border-bottom:1px solid var(--line)}
+    .detail .child-body .more{border:0;border-top:1px solid var(--line);border-radius:0;background:transparent}
+    .detail .child-body .more>summary{padding:11px 0}
+    .detail .child-body .more-body{padding:0 0 16px}
     .review{display:grid;gap:6px;margin-top:16px}
     .review-field{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
     .review-notes>summary{font-size:13px;color:var(--muted);cursor:pointer}
@@ -181,10 +193,9 @@ export function dashboardHtml(): string {
     .element-name{font-weight:600}
     .element-main code{max-width:100%;padding:0;background:none;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .element-main .element-note{color:var(--muted)}
-    .owner .facts{margin-bottom:10px}
     .review-select{height:32px;padding:0 6px;border:1px solid var(--line-strong);border-radius:6px;background:var(--raised);font-size:13px}
 
-    .history-dialog{width:min(94vw,980px);max-width:none;max-height:88vh;padding:20px;overscroll-behavior:contain;border:1px solid var(--line);border-radius:14px;background:var(--cream);color:var(--ink)}
+    .history-dialog{width:min(94vw,980px);max-width:none;max-height:88vh;padding:20px;overscroll-behavior:contain;border:1px solid var(--line);border-radius:14px;background:var(--page);color:var(--ink)}
     .history-dialog::backdrop{background:rgba(28,28,28,.72)}
     .history-dialog .dialog-bar{align-items:flex-start}
     .history-dialog .dialog-bar p{margin-top:4px;font-size:13px;color:var(--muted)}
@@ -192,7 +203,7 @@ export function dashboardHtml(): string {
     .history-list{display:grid;gap:10px;margin-top:10px;max-height:62vh;overflow:auto}
     .history-empty{padding:32px;text-align:center;color:var(--muted)}
     .history-group{display:grid;gap:8px}
-    .history-group h3{position:sticky;top:0;padding:8px 0;background:var(--cream);font-size:14px;font-weight:600}
+    .history-group h3{position:sticky;top:0;padding:8px 0;background:var(--page);font-size:14px;font-weight:600}
     .history-row{display:grid;grid-template-columns:minmax(220px,1fr) repeat(3,auto);gap:12px;align-items:center;padding:11px;border:1px solid var(--line);border-radius:10px}
     .history-row strong{display:block}
     .history-row span{display:block;font-size:12px;color:var(--muted)}
@@ -202,7 +213,7 @@ export function dashboardHtml(): string {
     @media(max-width:900px){
       html,body{height:auto}
       body{display:block;overflow:auto}
-      .app-header{position:sticky;top:0;z-index:10;background:var(--cream)}
+      .app-header{position:sticky;top:0;z-index:10}
       .app-header h1{white-space:nowrap}
       main,.results,.workspace{display:block}
       .sidebar{border-right:0;border-bottom:1px solid var(--line)}
@@ -349,35 +360,36 @@ export function dashboardHtml(): string {
     function changesOf(f){return f.remediationGuidance?.change?.length?f.remediationGuidance.change:[f.remediation];}
     function whereLine(f){const where=el('p','where');const pages=affectedPages(f);where.append(el('code','',f.location.selector||f.ruleId));if(pages.length){where.append(' on ',externalLink(pages[0].pageTitle||pages[0].url,pages[0].url));if(pages.length>1)where.append(' and '+plural(pages.length-1,'more page'));}else if(f.location.file)where.append(' in '+f.location.file+(f.location.line?':'+f.location.line:''));return where;}
     function stateText(location){return 'Revealed interaction state: '+interactionTypeLabel(location.interactionType)+' · '+location.interactionState+(location.interactionTrigger?', trigger '+location.interactionTrigger:'')+'. Reproduce it before verifying the fix.';}
+    function shown(node,kind){node.open=true;if(kind)node.classList.add(kind);return node;}
     function failedConditionsOf(f){const found=(f.remediationGuidance?.inspect||[]).filter(item=>item.startsWith('Failed condition:')).map(item=>item.slice('Failed condition:'.length).trim());return found.length?found:[childFailedCondition(f)];}
-    function failureCallout(conditions,label){const callout=el('div','callout');callout.append(el('span','label',label));if(conditions.length===1)callout.append(appendTechnicalText(el('p',''),conditions[0]));else{callout.append(items('ul',conditions.slice(0,3)));if(conditions.length>3){const rest=el('details','review-notes');rest.append(el('summary','',(conditions.length-3)+' more'),items('ul',conditions.slice(3)));callout.append(rest);}}return callout;}
+    function failureNodes(conditions){if(conditions.length===1)return [appendTechnicalText(el('p',''),conditions[0])];const nodes=[items('ul',conditions.slice(0,3))];if(conditions.length>3){const rest=el('details','review-notes');rest.append(el('summary','',(conditions.length-3)+' more'),items('ul',conditions.slice(3)));nodes.push(rest);}return nodes;}
     function contrastFacts(f,heading){if(!f.contrast)return [];const c=f.contrast;const facts=el('dl','facts');[['Foreground',c.foreground,true],['Background',c.background,true],['Measured ratio',c.ratio?c.ratio+':1':'Not reported'],['Required ratio',c.requiredRatio?c.requiredRatio+':1':'Verify manually'],['Font',[c.fontSize,c.fontWeight].filter(Boolean).join(' · ')||'Not reported']].forEach(([name,value,isColor])=>{const pair=el('div','');const dd=el('dd','');if(isColor){const swatch=el('span','swatch');swatch.style.background=value;dd.append(swatch);}dd.append(String(value));pair.append(el('dt','',name),dd);facts.append(pair);});return [el(heading,'','Color contrast evidence'),facts];}
     function contextNote(){return el('p','note','This is what the browser rendered. Make the fix in your source, not here.');}
     function contextBlock(f,label){const context=findingRenderedContext(f);return codeBlock((label||'Original browser HTML')+' · '+(context.scope==='parent'?'affected element and parent':'affected element')+(context.truncated?' · truncated, inspect the selector for the full DOM':''),context.html);}
     function shotButton(f){if(!f.screenshot)return null;const shot=el('button','shot');shot.type='button';shot.setAttribute('aria-label','Open larger screenshot for '+(f.location.selector||f.title));const image=el('img','');image.src=f.screenshot.dataUrl;image.alt=f.screenshot.description;image.width=f.screenshot.width;image.height=f.screenshot.height;shot.append(image);shot.addEventListener('click',()=>openScreenshot(f));return shot;}
     // findings: one finding, or the elements of one issue set. set carries the owning group and cluster when there is one.
-    function findingBody(findings,heading,set){const f=findings[0];const single=findings.length===1;const group=set?.group;const cluster=set?.cluster;const body=el('div',f.severity);
+    function findingBody(findings,heading,set){const f=findings[0];const single=findings.length===1;const group=set?.group;const cluster=set?.cluster;const body=el('div',f.severity);const list=el('div','more-list');
       const sameFailure=new Set(findings.map(childFailedCondition)).size===1;const pages=[...new Map(findings.flatMap(affectedPages).map(page=>[page.url,page])).values()];
       if(single){body.append(whereLine(f));if(f.location.interactionState)body.append(el('p','note',stateText(f.location)));}else body.append(el('p','where',findings.length+' elements share this issue. One fix applies to all of them.'));
-      if(single||sameFailure||cluster)body.append(failureCallout(single||sameFailure?failedConditionsOf(f):[cluster.failedCondition],single?'Failed condition':'Shared failure'));
-      const changes=[...new Set(findings.flatMap(changesOf))];const suggestion=f.codeSuggestion;body.append(el(heading,'','What to change'));
-      if(suggestion)body.append(appendTechnicalText(el('p','lead-fix'),suggestion.title+(suggestion.title.endsWith('.')?'':'.')));
-      body.append(items('ul',changes));
-      if(f.safeFix)body.append(el('p','note','Safe automated fix available: '+f.safeFix.description));
-      if(suggestion){const why=(suggestion.reviewRequired?'Review required. ':'')+(changes.includes(suggestion.rationale)?'':suggestion.rationale);if(why)body.append(appendTechnicalText(el('p','note'),why));const others=(suggestion.alternatives||[]).filter(text=>!changes.includes(text));if(others.length)body.append(el('p','note','Other valid approach'),items('ul',others));}
+      if(single||sameFailure||cluster)list.append(shown(more(single?'Failed condition':'Shared failure',...failureNodes(single||sameFailure?failedConditionsOf(f):[cluster.failedCondition])),'fail'));
+      const changes=[...new Set(findings.flatMap(changesOf))];const suggestion=f.codeSuggestion;const fix=[];
+      if(suggestion)fix.push(appendTechnicalText(el('p','lead-fix'),suggestion.title+(suggestion.title.endsWith('.')?'':'.')));
+      fix.push(items('ul',changes));if(f.safeFix)fix.push(el('p','note','Safe automated fix available: '+f.safeFix.description));
+      if(suggestion){const why=(suggestion.reviewRequired?'Review required. ':'')+(changes.includes(suggestion.rationale)?'':suggestion.rationale);if(why)fix.push(appendTechnicalText(el('p','note'),why));const others=(suggestion.alternatives||[]).filter(text=>!changes.includes(text));if(others.length)fix.push(el('p','note','Other valid approach'),items('ul',others));}
+      list.append(shown(more('What to change',...fix),'fix'));
       const target=cluster?.remediationTarget||(f.ruleId==='aria-required-parent'?group?.remediationTarget:null);
-      if(target){const owner=el('div','owner');const facts=el('dl','facts');const fact=(name,...values)=>{const pair=el('div','');const dd=el('dd','');dd.append(...values);pair.append(el('dt','',name),dd);facts.append(pair);};fact('Container',el('code','',target.selector));fact('Current role',target.currentRole||'None');fact('Needs one of',...target.suggestedRoles.map(role=>el('code','',role)));owner.append(el(heading,'','Likely shared owner'),facts,codeBlock('Container markup',target.html));body.append(owner);}
-      if(single){body.append(...contrastFacts(f,heading),el(heading,'','Rendered HTML context'),contextBlock(f),contextNote());const shot=shotButton(f);if(shot)body.append(el(heading,'','Visual evidence'),shot);}
-      else{body.append(el(heading,'','Affected elements ('+findings.length+')'));findings.forEach(item=>{const shot=shotButton(item);const element=el('div','element'+(shot?'':' no-shot'));const main=el('div','element-main');const named=elementName(item);const title=el('span','element-name',named.name||item.location.selector||item.ruleId);if(named.tag)title.append(el('span','muted',' <'+named.tag+'>'));main.append(title);if(named.name)main.append(el('code','',item.location.selector||item.ruleId));if(!sameFailure)main.append(appendTechnicalText(el('span','element-note'),childFailedCondition(item)));if(item.location.interactionState)main.append(el('span','element-note',stateText(item.location)));if(pages.length>1){const own=affectedPages(item);if(own.length===1)main.append(externalLink(own[0].pageTitle||own[0].url,own[0].url));else if(own.length)main.append(el('span','element-note','On '+own.length+' pages'));}if(shot)element.append(shot);element.append(main);body.append(element);});}
+      if(target){const facts=el('dl','facts');const fact=(name,...values)=>{const pair=el('div','');const dd=el('dd','');dd.append(...values);pair.append(el('dt','',name),dd);facts.append(pair);};fact('Container',el('code','',target.selector));fact('Current role',target.currentRole||'None');fact('Needs one of',...target.suggestedRoles.map(role=>el('code','',role)));list.append(shown(more('Likely shared owner',facts,codeBlock('Container markup',target.html)),'owner'));}
+      if(single){if(f.contrast)list.append(shown(more('Color contrast evidence',...contrastFacts(f,heading).slice(1))));list.append(shown(more('Rendered HTML context',contextBlock(f),contextNote())));const shot=shotButton(f);if(shot)list.append(shown(more('Visual evidence',shot)));}
+      else{const rows=findings.map(item=>{const shot=shotButton(item);const element=el('div','element'+(shot?'':' no-shot'));const main=el('div','element-main');const named=elementName(item);const title=el('span','element-name',named.name||item.location.selector||item.ruleId);if(named.tag)title.append(el('span','muted',' <'+named.tag+'>'));main.append(title);if(named.name)main.append(el('code','',item.location.selector||item.ruleId));if(!sameFailure)main.append(appendTechnicalText(el('span','element-note'),childFailedCondition(item)));if(item.location.interactionState)main.append(el('span','element-note',stateText(item.location)));if(pages.length>1){const own=affectedPages(item);if(own.length===1)main.append(externalLink(own[0].pageTitle||own[0].url,own[0].url));else if(own.length)main.append(el('span','element-note','On '+own.length+' pages'));}if(shot)element.append(shot);element.append(main);return element;});list.append(shown(more('Affected elements ('+findings.length+')',...rows)));}
       // Guidance that names one element stays out of the shared sections: keep only what every element has in common.
       const common=key=>(f.remediationGuidance?.[key]||[]).filter(text=>!text.startsWith('Failed condition:')&&findings.every(item=>item.remediationGuidance?.[key]?.includes(text)));
-      const extra=el('div','more-list');const inspect=common('inspect');if(inspect.length)extra.append(more('What to inspect',items('ul',inspect)));
-      const rule=el('p','muted','Detected by rule ');rule.append(el('code','',f.ruleId),' · '+cap(f.confidence)+' confidence · '+(f.kind==='automatic'?'human verification still required':'manual review required'));extra.append(more('Why this was flagged',appendTechnicalText(el('p',''),f.explanation),rule));
-      if(!single)extra.append(more('Rendered HTML context',...findings.map(item=>contextBlock(item,item.location.selector||item.ruleId)),contextNote()));
-      if(pages.length>1)extra.append(more('Affected pages ('+pages.length+')',el('p','muted','Same issue on every page listed. Retest each one after the fix.'),items('ul',pages,(node,page)=>{node.append(externalLink(page.pageTitle||page.url,page.url));if(page.pageTitle)node.append(el('span','muted',' '+page.url));})));
-      const verify=common('verify');extra.append(more('How to verify the fix',items('ol',verify.length?verify:['Test each affected element with a keyboard and the relevant assistive technology.','Run the scan again and confirm the finding is gone without introducing a new issue.'])));
-      const references=el('ul','');f.wcag.forEach(criterion=>{const node=el('li','');node.append(externalLink('WCAG '+criterion,wcagUnderstandingUrls[criterion]||wcagUnderstandingIndex),' — W3C Understanding guidance');references.append(node);});if(f.helpUrl){const node=el('li','');node.append(externalLink('axe scanner rule details (Deque)',f.helpUrl));references.append(node);}if(references.childElementCount)extra.append(more('Standards and references',references));
-      body.append(extra);return body;}
+      const inspect=common('inspect');if(inspect.length)list.append(more('What to inspect',items('ul',inspect)));
+      const rule=el('p','muted','Detected by rule ');rule.append(el('code','',f.ruleId),' · '+cap(f.confidence)+' confidence · '+(f.kind==='automatic'?'human verification still required':'manual review required'));list.append(more('Why this was flagged',appendTechnicalText(el('p',''),f.explanation),rule));
+      if(!single)list.append(more('Rendered HTML context',...findings.map(item=>contextBlock(item,item.location.selector||item.ruleId)),contextNote()));
+      if(pages.length>1)list.append(more('Affected pages ('+pages.length+')',el('p','muted','Same issue on every page listed. Retest each one after the fix.'),items('ul',pages,(node,page)=>{node.append(externalLink(page.pageTitle||page.url,page.url));if(page.pageTitle)node.append(el('span','muted',' '+page.url));})));
+      const verify=common('verify');list.append(more('How to verify the fix',items('ol',verify.length?verify:['Test each affected element with a keyboard and the relevant assistive technology.','Run the scan again and confirm the finding is gone without introducing a new issue.'])));
+      const references=el('ul','');f.wcag.forEach(criterion=>{const node=el('li','');node.append(externalLink('WCAG '+criterion,wcagUnderstandingUrls[criterion]||wcagUnderstandingIndex),' — W3C Understanding guidance');references.append(node);});if(f.helpUrl){const node=el('li','');node.append(externalLink('axe scanner rule details (Deque)',f.helpUrl));references.append(node);}if(references.childElementCount)list.append(more('Standards and references',references));
+      body.append(list);return body;}
     function renderDetail(f){if(!f){showEmpty('Select a finding to review its evidence and remediation guidance.');return;}
       const context=[f.wcagLevel&&'WCAG Level '+f.wcagLevel,findingIssueCategory(f),f.scope==='common'&&'Recurring '+findingComponentCategory(f).toLowerCase(),comparisonWord([f]),f.kind==='automatic'?'Automated finding':'Manual review'].filter(Boolean).join(' · ');const prompt=remediationPrompt(f);
       detail.replaceChildren(detailHead(f.fingerprint,[el('span','pill '+f.severity,f.severity),context],f.title,copyButton(prompt)),reviewControl([f]));

@@ -146,7 +146,8 @@ const REPORT_CSS = `
     .detail .index li{margin:0;border-bottom:1px solid var(--line)}
     .index a{display:grid;grid-template-columns:8px minmax(0,1fr);gap:10px;padding:9px 4px;text-decoration:none}
     .index a:hover{background:var(--tint)}
-    .finding{margin-top:24px;padding:24px;border:1px solid var(--line);border-radius:12px;scroll-margin-top:16px}
+    .finding{margin-top:24px;padding:24px;border:1px solid var(--line);border-radius:12px;background:var(--raised);scroll-margin-top:16px}
+    .finding .callout{background:var(--accent-soft)}
     .detail .group-name{margin:8px 0 0;font-size:18px}
     .review-notes{margin-top:6px;padding:8px 12px;border-left:3px solid var(--line-strong);background:var(--raised);white-space:pre-wrap}
     .check{padding:16px 0;border-top:1px solid var(--line)}

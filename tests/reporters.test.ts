@@ -183,8 +183,8 @@ describe("reporters", () => {
     expect(html).toContain("axe scanner rule details (Deque)");
     expect(html).toContain('<pre tabindex="0">');
     expect(html).toContain("--critical:#ab307e");
-    expect(html).toContain("--moderate:#2f5bb7");
-    expect(html).toContain("--minor:#6b6b68");
+    expect(html).toContain("--moderate:#0e6e78");
+    expect(html).toContain("--minor:#5b6578");
     expect(html).toContain("--serious:#9a4e12");
     expect(html).not.toContain(".wcag-level-badge.level-aa");
     expect(html).not.toContain("linear-gradient");
@@ -228,7 +228,9 @@ describe("reporters", () => {
     expect(html).toContain("What to change");
     expect(html).toContain("appendTechnicalText");
     expect(html).toContain("aria-[a-z0-9-]+");
-    expect(html).toContain("failureCallout");
+    expect(html).toContain("failureNodes");
+    expect(html).toContain("function shown(node,kind)");
+    expect(html).toContain("--accent:#2f55c4");
     expect(html).toContain("findingRenderedContext");
     expect(html).toContain("contextBlock");
     expect(html).toContain("Original browser HTML");
@@ -316,7 +318,7 @@ describe("reporters", () => {
     expect(html).toContain("Shared failure");
     expect(html).toContain("item.stage+' stage'");
     expect(html).toContain("item.attempts");
-    expect(html).toContain("#f7f4ed");
+    expect(html).toContain("#f3f5fb");
     expect(html).toContain("Download HTML report");
     expect(html).toContain("Capture screenshots");
     expect(html).toContain('id="interaction-states"');
@@ -356,8 +358,8 @@ describe("reporters", () => {
     expect(html).toContain("/^WCAG (\\d+\\.\\d+\\.\\d+)(.*)$/");
     expect(html).toContain("WCAG '+wcagVersion+' · Section ");
     expect(html).toContain("--critical:#ab307e");
-    expect(html).toContain("--moderate:#2f5bb7");
-    expect(html).toContain("--minor:#6b6b68");
+    expect(html).toContain("--moderate:#0e6e78");
+    expect(html).toContain("--minor:#5b6578");
     expect(html).toContain("--serious:#9a4e12");
     expect(html).not.toContain(".wcag-level-badge.level-aa");
     expect(html).not.toContain("linear-gradient");

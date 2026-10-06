@@ -17,6 +17,8 @@ All notable changes to this project will be documented in this file.
 - Downloadable HTML report redesigned to match the dashboard, sharing its style sheet. Report totals, filters, and review dispositions are text and chips instead of metric tiles and badges.
 - Review dispositions and notes are recorded per finding or per component through one **Review** dropdown, and manual tasks use one **Outcome** dropdown. The sidebar keeps a single severity filter; the WCAG-level and review filters are removed.
 
+- Dashboard and report use a light blue palette with one blue accent in place of the cream theme. Detail sections are white cards on a tinted page, each one collapsible; the fix-first sections start open.
+- Affected-element rows lead with the element's visible name instead of its markup, and the likely shared owner is three labelled facts.
 - Dashboard and report copy shortened for skimming: **What to change** opens with one bold line naming the fix, failed conditions are a bulleted list with three shown, help text is one sentence, and an element on several pages shows a page count instead of a list of links.
 - Run notices (pages that could not be tested, skipped interactive states, skipped assets) are one collapsed line each, and the totals state failed pages next to tested pages.
 - A component with a single issue shows that issue directly instead of nesting it in a card, and no longer repeats its guidance as shared corrections. Zero comparison counts and the header subtitle are removed.
