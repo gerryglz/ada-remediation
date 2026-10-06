@@ -240,6 +240,9 @@ describe("reporters", () => {
     expect(html).toContain("fact('Current role'");
     expect(html).toContain("fact('Needs one of'");
     expect(html).toContain("function elementName(f)");
+    expect(html).toContain("more('Element markup',");
+    expect(html).toContain("el('mark','',");
+    expect(html).toContain("currentComparison?.baseRunId");
     expect(html).not.toContain("element-markup',item.evidence");
     expect(html).toContain("rel=\"icon\"");
     expect(html).toContain("data:image/svg+xml");

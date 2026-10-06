@@ -100,7 +100,7 @@ describe("dashboard reviewer workflow", () => {
     });
     expect(report.findings.length).toBeGreaterThan(0);
     expect(report.findings[0].renderedHtmlContext.html).toContain("\n");
-    await expect(page.locator('#summary [data-stat="new"]').textContent()).resolves.toBe(String(report.findings.length));
+    await expect(page.locator('#summary [data-stat="new"]').count(), "a first scan has no earlier run, so no comparison counts are shown").resolves.toBe(0);
     const menuFindings = report.findings.filter((finding: { ruleId: string; component?: { name?: string } }) => finding.ruleId === "aria-required-parent" && finding.component?.name === "Primary navigation");
     expect(menuFindings).toHaveLength(2);
     expect(menuFindings[0].component.remediationTarget).toMatchObject({ selector: "ul.primary-menu", currentRole: "presentation" });
