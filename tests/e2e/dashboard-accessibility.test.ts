@@ -141,7 +141,7 @@ describe("dashboard self-accessibility gate", () => {
     await page.keyboard.press("Escape");
     await expect(screenshotButton.evaluate((element) => element === document.activeElement)).resolves.toBe(true);
 
-    await expect(page.locator("#filter-groups").isVisible()).resolves.toBe(true);
+    await expect(page.locator("#filters").isVisible()).resolves.toBe(true);
     const severityFilter = page.locator("#filters .chip").nth(1);
     await severityFilter.focus();
     await page.keyboard.press("Enter");

@@ -14,7 +14,7 @@ All notable changes to this project will be documented in this file.
 - Dashboard sidebar redesigned: tabs and filter chips carry their own counts, empty filter values are hidden, and each finding row is a severity dot, a title, and one line of text metadata with no badges. The **Show filters** toggle and the finding-count line are gone.
 - Dashboard detail pane redesigned to be fix-first: the location, failed condition, what to change, rendered HTML context, and screenshot stay visible, and supporting material moves into collapsed sections. Severity is the only color-coded attribute; all other badges became text. Same-rule elements in an issue set are compact rows with one combined AI prompt.
 - Downloadable HTML report redesigned to match the dashboard, sharing its style sheet. Report totals, filters, and review dispositions are text and chips instead of metric tiles and badges.
-- Review dispositions inside a component are set per component, per issue set, or per element; reviewer notes are recorded per issue set or per component.
+- Review dispositions and notes are recorded per finding or per component through one **Review** dropdown, and manual tasks use one **Outcome** dropdown. The sidebar keeps a single severity filter; the WCAG-level and review filters are removed.
 
 - Reviewer notes save when their field loses focus, so the **Save review** button is gone. Unsaved notes are also sent when the page closes.
 - The scan button reads **Scan site** while crawling is on, the URL field no longer starts with a prefilled address, and the dashboard has a skip link.

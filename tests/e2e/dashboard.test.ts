@@ -81,6 +81,8 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("What to change");
     await expect(page.locator("#finding-detail [class*=badge]").count()).resolves.toBe(0);
     await expect(page.locator("#finding-detail .pill").count()).resolves.toBe(1);
+    await expect(page.locator("#finding-detail .chip").count()).resolves.toBe(0);
+    await expect(page.locator(".sidebar-head .chips:not([hidden])").count()).resolves.toBe(1);
     await expect(page.locator("#finding-detail code, #finding-detail pre").first().textContent()).resolves.toBeTruthy();
 
     const jsonResponse = await page.request.get(`${dashboard.url}/api/report.json`);
@@ -112,11 +114,12 @@ describe("dashboard reviewer workflow", () => {
     await expect(parentIssueCard.locator(".element").count()).resolves.toBe(2);
     await expect(parentIssueCard.locator(".owner").textContent()).resolves.toContain("ul.primary-menu");
     await expect(parentIssueCard.locator(".owner").textContent()).resolves.toContain("Current role");
-    await expect(page.locator("#filter-groups").isVisible()).resolves.toBe(true);
+    await expect(page.locator("#filters").isVisible()).resolves.toBe(true);
 
     const selectedReviewFingerprints = report.findingGroups?.find((group: { findingFingerprints: string[] }) => group.findingFingerprints.length > 1)?.findingFingerprints
       ?? [report.findings[0].fingerprint];
-    await page.locator("#finding-detail .review").first().getByRole("button", { name: "Action required", exact: true }).click();
+    await expect(page.locator("#finding-detail .review-select").count()).resolves.toBe(1);
+    await page.locator("#finding-detail .review-select").selectOption("action-required");
     await page.locator("#save-state").getByText("Saved locally").waitFor();
     await page.locator("#finding-detail .review-notes > summary").first().click();
     await page.locator("#finding-detail .review-notes textarea").first().fill("Update the shared component and retest every affected page.");
@@ -130,19 +133,14 @@ describe("dashboard reviewer workflow", () => {
         notes: "Update the shared component and retest every affected page.",
       });
     }
-    const actionRequiredChip = page.locator("#finding-review-filters").getByRole("button", { name: /^Action required/ });
-    await expect(actionRequiredChip.textContent()).resolves.toBe(`Action required ${selectedReviewFingerprints.length}`);
-    await actionRequiredChip.click();
-    await expect(actionRequiredChip.getAttribute("aria-pressed")).resolves.toBe("true");
-    await expect(page.locator("#finding-list .row").first().textContent()).resolves.toContain("Action required");
-    await page.locator("#finding-review-filters").getByRole("button", { name: /^All reviews/ }).click();
+    await expect(page.locator("#finding-list .row").filter({ hasText: "Action required" }).count()).resolves.toBeGreaterThan(0);
 
     await page.getByRole("button", { name: "Manual review" }).click();
     await expect(page.locator("#manual-tab").getAttribute("aria-pressed")).resolves.toBe("true");
     await expect(page.locator("#manual-status-filters").isVisible()).resolves.toBe(true);
     const manualTaskCount = await page.locator("#finding-list .row.manual").count();
     expect(manualTaskCount).toBeGreaterThan(0);
-    await page.locator("#finding-detail").getByRole("button", { name: "Pass", exact: true }).click();
+    await page.locator("#finding-detail .review-select").selectOption("pass");
     await page.locator("#save-state").getByText("Saved locally").waitFor();
     await page.locator("#finding-detail textarea").fill("Keyboard access and focus order verified with NVDA.");
     await page.locator("#finding-detail textarea").blur();
@@ -189,7 +187,7 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#history-list .history-row").count()).resolves.toBe(1);
     await page.locator("#history-list .history-row").first().getByRole("button", { name: /Open scan/ }).click();
     await page.getByRole("button", { name: "Manual review" }).click();
-    await expect(page.locator('#finding-detail .chip[aria-pressed="true"]').textContent()).resolves.toBe("Pass");
+    await expect(page.locator("#finding-detail .review-select").inputValue()).resolves.toBe("pass");
     await expect(page.locator("#finding-detail textarea").inputValue()).resolves.toBe("Keyboard access and focus order verified with NVDA.");
     await expect(page.locator("#run-notes").inputValue()).resolves.toBe("Keyboard review assigned to the accessibility team.");
     expect(consoleErrors).toEqual([]);

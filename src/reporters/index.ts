@@ -319,7 +319,7 @@ function componentGroupsHtml(result: ScanResult, groups: FindingGroup[]): string
   }).join("")}</section>`;
 }
 
-// Chips carry their own counts. Values with no findings are left out, and a row with fewer than two values is not shown.
+// Severity is the only filter. Chips carry their own counts, and severities with no findings are left out.
 function filtersHtml(result: ScanResult): string {
   const findings = result.findings;
   if (!findings.length) return "";
@@ -329,7 +329,7 @@ function filtersHtml(result: ScanResult): string {
     if (!required && present.length < 2) return "";
     return `<div class="chips" role="group" aria-label="${label}">${chip(kind, "all", allLabel, findings.length)}${present.map(([value, text, count]) => chip(kind, value, text, count)).join("")}</div>`;
   };
-  return `<div class="filters">${row("severity", "Impact severity", "All", [["critical", "Critical"], ["serious", "Serious"], ["moderate", "Moderate"], ["minor", "Minor"]], (finding) => finding.severity, true)}${row("level", "WCAG level", "All levels", [["A", "A"], ["AA", "AA"], ["AAA", "AAA"]], (finding) => finding.wcagLevel)}${row("disposition", "Review disposition", "All reviews", Object.entries(findingDispositionLabels), (finding) => findingReviewFor(result, finding).disposition)}</div>`;
+  return `<div class="filters">${row("severity", "Impact severity", "All", [["critical", "Critical"], ["serious", "Serious"], ["moderate", "Moderate"], ["minor", "Minor"]], (finding) => finding.severity, true)}</div>`;
 }
 
 export function htmlReport(result: ScanResult): string {
@@ -382,7 +382,7 @@ ${manualChecklistHtml(result)}
 <dialog class="image-dialog" id="image-dialog" aria-labelledby="dialog-title"><div class="dialog-bar"><strong id="dialog-title">Visual evidence</strong><button class="btn" id="dialog-close" type="button">Close</button></div><img id="dialog-image" alt=""></dialog>
 <script>
 const dialog=document.getElementById('image-dialog');const dialogImage=document.getElementById('dialog-image');
-const active={severity:'all',level:'all',disposition:'all'};const kinds=Object.keys(active);
+const active={severity:'all'};const kinds=Object.keys(active);
 function applyFilters(){document.querySelectorAll('.finding[data-severity],.index li').forEach(item=>{item.classList.toggle('hidden',kinds.some(kind=>active[kind]!=='all'&&item.dataset[kind]!==active[kind]));});}
 kinds.forEach(kind=>{const buttons=document.querySelectorAll('[data-'+kind+'-filter]');buttons.forEach(button=>button.addEventListener('click',()=>{active[kind]=button.dataset[kind+'Filter'];buttons.forEach(item=>item.setAttribute('aria-pressed',String(item===button)));applyFilters();}));});
 document.querySelectorAll('.shot').forEach(button=>button.addEventListener('click',()=>{const image=button.querySelector('img');dialogImage.src=image.src;dialogImage.alt=image.alt;document.getElementById('dialog-title').textContent=button.getAttribute('aria-label');dialog.showModal();}));
