@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Dashboard header, scan form, and results summary redesigned: one results bar (URL, WCAG target, totals, review actions, exports) replaces the metric tiles and the summary toggle, run notes and comparison move into a disclosure, and the automated-testing disclaimer moves to the sidebar foot.
+- Dashboard sidebar redesigned: tabs and filter chips carry their own counts, empty filter values are hidden, and each finding row is a severity dot, a title, and one line of text metadata with no badges. The **Show filters** toggle and the finding-count line are gone.
 
 ### Fixed
 

@@ -137,17 +137,13 @@ describe("dashboard self-accessibility gate", () => {
     await page.keyboard.press("Escape");
     await expect(screenshotButton.evaluate((element) => element === document.activeElement)).resolves.toBe(true);
 
-    const filterToggle = page.locator("#filter-toggle");
-    await expect(filterToggle.textContent()).resolves.toBe("Show filters");
-    await expect(page.locator("#filter-groups").isHidden()).resolves.toBe(true);
-    await filterToggle.focus();
-    await page.keyboard.press("Enter");
-    await expect(filterToggle.getAttribute("aria-expanded")).resolves.toBe("true");
     await expect(page.locator("#filter-groups").isVisible()).resolves.toBe(true);
-    const criticalFilter = page.locator("#filters .filter").filter({ hasText: "Critical" });
-    await criticalFilter.focus();
+    const severityFilter = page.locator("#filters .chip").nth(1);
+    await severityFilter.focus();
     await page.keyboard.press("Enter");
-    await expect(criticalFilter.getAttribute("aria-pressed")).resolves.toBe("true");
+    await expect(severityFilter.getAttribute("aria-pressed")).resolves.toBe("true");
+    await expect(severityFilter.evaluate((element) => element === document.activeElement), "a re-rendered filter chip keeps keyboard focus").resolves.toBe(true);
+    await assertDashboardAccessibility(page, "filtered finding list");
 
     const manualTab = page.getByRole("button", { name: "Manual review" });
     await manualTab.focus();
