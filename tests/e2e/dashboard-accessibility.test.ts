@@ -173,9 +173,9 @@ describe("dashboard self-accessibility gate", () => {
     await page.waitForTimeout(500);
     const responsiveGeometry = await page.evaluate(() => ({
       headerBottom: document.querySelector(".app-header")!.getBoundingClientRect().bottom,
-      summaryToggleTop: document.querySelector("#result-summary-toggle")!.getBoundingClientRect().top,
+      resultActionsTop: document.querySelector(".results-actions")!.getBoundingClientRect().top,
     }));
-    expect(responsiveGeometry.summaryToggleTop, "result actions must not be obscured by the sticky header").toBeGreaterThanOrEqual(responsiveGeometry.headerBottom);
+    expect(responsiveGeometry.resultActionsTop, "result actions must not be obscured by the sticky header").toBeGreaterThanOrEqual(responsiveGeometry.headerBottom);
     await assertDashboardAccessibility(page, "incomplete scan result");
 
     await page.setViewportSize({ width: 320, height: 900 });

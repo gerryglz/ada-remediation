@@ -71,6 +71,8 @@ describe("dashboard reviewer workflow", () => {
 
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
     await expect(page.locator("#result-source").getAttribute("href")).resolves.toBe(fixture.url);
+    await expect(page.locator("#result-auth").isHidden()).resolves.toBe(true);
+    await expect(page.locator("#notice").textContent()).resolves.toContain("Automated results cannot certify");
     await expect(page.locator("#queue-count").textContent()).resolves.toMatch(/component|pattern|individual/i);
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Rendered HTML context");
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Recommended correction");
@@ -91,7 +93,7 @@ describe("dashboard reviewer workflow", () => {
     });
     expect(report.findings.length).toBeGreaterThan(0);
     expect(report.findings[0].renderedHtmlContext.html).toContain("\n");
-    await expect(page.locator(".new-metric strong").textContent()).resolves.toBe(String(report.findings.length));
+    await expect(page.locator('#summary [data-stat="new"]').textContent()).resolves.toBe(String(report.findings.length));
     const menuFindings = report.findings.filter((finding: { ruleId: string; component?: { name?: string } }) => finding.ruleId === "aria-required-parent" && finding.component?.name === "Primary navigation");
     expect(menuFindings).toHaveLength(2);
     expect(menuFindings[0].component.remediationTarget).toMatchObject({ selector: "ul.primary-menu", currentRole: "presentation" });
@@ -135,6 +137,7 @@ describe("dashboard reviewer workflow", () => {
     await page.locator("#finding-detail").getByRole("button", { name: "Pass", exact: true }).click();
     await page.locator("#save-state").getByText("Saved locally").waitFor();
     await page.locator("#finding-detail textarea").fill("Keyboard access and focus order verified with NVDA.");
+    await page.getByRole("button", { name: "Notes and comparison" }).click();
     await page.locator("#run-notes").fill("Keyboard review assigned to the accessibility team.");
     await page.getByRole("button", { name: "Save review" }).click();
     await page.locator("#save-state").getByText("Saved locally").waitFor();
@@ -159,8 +162,8 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#history-list .history-row").first().textContent()).resolves.toContain("WCAG AA · Single page · screenshots off · interactive states off · public");
     await page.locator("#history-list .history-row").first().getByRole("button", { name: /Run this saved profile again/ }).click();
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
-    await expect(page.locator(".new-metric strong").textContent()).resolves.toBe("0");
-    await expect(page.locator(".existing-metric strong").textContent()).resolves.toBe(String(report.findings.length));
+    await expect(page.locator('#summary [data-stat="new"]').textContent()).resolves.toBe("0");
+    await expect(page.locator('#summary [data-stat="existing"]').textContent()).resolves.toBe(String(report.findings.length));
     await expect(page.locator(".history-status-badge.existing").count()).resolves.toBeGreaterThan(0);
     await expect(page.locator(".finding-review-status.action-required").count()).resolves.toBeGreaterThan(0);
 

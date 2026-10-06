@@ -8,7 +8,13 @@ All notable changes to this project will be documented in this file.
 
 - Repository source findings now include inspect, change, and verify guidance, an issue category, and an AI remediation prompt, matching the detail of rendered-scan findings.
 
+### Changed
+
+- Dashboard header, scan form, and results summary redesigned: one results bar (URL, WCAG target, totals, review actions, exports) replaces the metric tiles and the summary toggle, run notes and comparison move into a disclosure, and the automated-testing disclaimer moves to the sidebar foot.
+
 ### Fixed
+
+- The dashboard no longer shows the **Authenticated scan** label on public scans.
 
 - Same-origin crawls no longer scan a directory URL and its `index.html` or `index.htm` file as two pages, which double-counted every finding on that page.
 
