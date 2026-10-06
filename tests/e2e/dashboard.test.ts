@@ -76,7 +76,9 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#finding-list .row").count()).resolves.toBeGreaterThan(0);
     await expect(page.locator("#finding-list .badge, #finding-list [class*=badge]").count()).resolves.toBe(0);
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Rendered HTML context");
-    await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Recommended correction");
+    await expect(page.locator("#finding-detail").textContent()).resolves.toContain("What to change");
+    await expect(page.locator("#finding-detail [class*=badge]").count()).resolves.toBe(0);
+    await expect(page.locator("#finding-detail .pill").count()).resolves.toBe(1);
     await expect(page.locator("#finding-detail code, #finding-detail pre").first().textContent()).resolves.toBeTruthy();
 
     const jsonResponse = await page.request.get(`${dashboard.url}/api/report.json`);
@@ -102,19 +104,20 @@ describe("dashboard reviewer workflow", () => {
     const parentIssue = menuGroup.issueClusters.find((cluster: { ruleId: string }) => cluster.ruleId === "aria-required-parent");
     expect(parentIssue.findingFingerprints).toHaveLength(2);
     await page.locator("#finding-list .row.component").filter({ hasText: "Primary navigation" }).click();
-    const parentIssueCard = page.locator("#finding-detail .issue-set-card").filter({ hasText: "Menu items share one missing required parent" });
+    const parentIssueCard = page.locator("#finding-detail .child").filter({ hasText: "Menu items share one missing required parent" });
     await expect(parentIssueCard.count()).resolves.toBe(1);
-    await parentIssueCard.locator(".issue-set-summary").click();
-    await expect(parentIssueCard.locator(".issue-element-row").count()).resolves.toBe(2);
-    await expect(parentIssueCard.locator(".issue-owner-card").textContent()).resolves.toContain("ul.primary-menu");
-    await expect(parentIssueCard.locator(".issue-owner-card").textContent()).resolves.toContain("Current role");
+    if ((await parentIssueCard.getAttribute("open")) === null) await parentIssueCard.locator("summary").first().click();
+    await expect(parentIssueCard.locator(".element").count()).resolves.toBe(2);
+    await expect(parentIssueCard.locator(".owner").textContent()).resolves.toContain("ul.primary-menu");
+    await expect(parentIssueCard.locator(".owner").textContent()).resolves.toContain("Current role");
     await expect(page.locator("#filter-groups").isVisible()).resolves.toBe(true);
 
     const selectedReviewFingerprints = report.findingGroups?.find((group: { findingFingerprints: string[] }) => group.findingFingerprints.length > 1)?.findingFingerprints
       ?? [report.findings[0].fingerprint];
-    await page.locator("#finding-detail .finding-review-panel").first().getByRole("button", { name: "Action required", exact: true }).click();
+    await page.locator("#finding-detail .review").first().getByRole("button", { name: "Action required", exact: true }).click();
     await page.locator("#save-state").getByText("Saved locally").waitFor();
-    await page.locator("#finding-detail .finding-review-panel textarea").first().fill("Update the shared component and retest every affected page.");
+    await page.locator("#finding-detail .review-notes > summary").first().click();
+    await page.locator("#finding-detail .review-notes textarea").first().fill("Update the shared component and retest every affected page.");
     await page.getByRole("button", { name: "Save review" }).click();
     await page.locator("#save-state").getByText("Saved locally").waitFor();
     const findingReviewJsonHref = await page.locator("#json-download").getAttribute("href");
@@ -169,8 +172,8 @@ describe("dashboard reviewer workflow", () => {
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
     await expect(page.locator('#summary [data-stat="new"]').textContent()).resolves.toBe("0");
     await expect(page.locator('#summary [data-stat="existing"]').textContent()).resolves.toBe(String(report.findings.length));
-    await expect(page.locator(".history-status-badge.existing").count()).resolves.toBeGreaterThan(0);
-    await expect(page.locator(".finding-review-status.action-required").count()).resolves.toBeGreaterThan(0);
+    await expect(page.locator("#finding-detail .meta").first().textContent()).resolves.toMatch(/existing/i);
+    await expect(page.locator("#finding-list .row").filter({ hasText: "Action required" }).count()).resolves.toBeGreaterThan(0);
 
     await page.getByRole("button", { name: "Scan history" }).click();
     await page.locator("#history-list .history-row").first().waitFor();
@@ -181,7 +184,7 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#history-list .history-row").count()).resolves.toBe(1);
     await page.locator("#history-list .history-row").first().getByRole("button", { name: /Open scan/ }).click();
     await page.getByRole("button", { name: "Manual review" }).click();
-    await expect(page.locator("#finding-detail .manual-status").first().textContent()).resolves.toBe("Pass");
+    await expect(page.locator('#finding-detail .chip[aria-pressed="true"]').textContent()).resolves.toBe("Pass");
     await expect(page.locator("#finding-detail textarea").inputValue()).resolves.toBe("Keyboard access and focus order verified with NVDA.");
     await expect(page.locator("#run-notes").inputValue()).resolves.toBe("Keyboard review assigned to the accessibility team.");
     expect(consoleErrors).toEqual([]);
