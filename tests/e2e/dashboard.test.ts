@@ -73,7 +73,8 @@ describe("dashboard reviewer workflow", () => {
     await expect(page.locator("#result-source").getAttribute("href")).resolves.toBe(fixture.url);
     await expect(page.locator("#result-auth").isHidden()).resolves.toBe(true);
     await expect(page.locator("#notice").textContent()).resolves.toContain("Automated results cannot certify");
-    await expect(page.locator("#queue-count").textContent()).resolves.toMatch(/component|pattern|individual/i);
+    await expect(page.locator("#finding-list .row").count()).resolves.toBeGreaterThan(0);
+    await expect(page.locator("#finding-list .badge, #finding-list [class*=badge]").count()).resolves.toBe(0);
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Rendered HTML context");
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Recommended correction");
     await expect(page.locator("#finding-detail code, #finding-detail pre").first().textContent()).resolves.toBeTruthy();
@@ -100,15 +101,13 @@ describe("dashboard reviewer workflow", () => {
     const menuGroup = report.findingGroups.find((group: { name: string }) => group.name === "Primary navigation");
     const parentIssue = menuGroup.issueClusters.find((cluster: { ruleId: string }) => cluster.ruleId === "aria-required-parent");
     expect(parentIssue.findingFingerprints).toHaveLength(2);
-    await page.locator(".component-group-nav").filter({ hasText: "Primary navigation" }).click();
+    await page.locator("#finding-list .row.component").filter({ hasText: "Primary navigation" }).click();
     const parentIssueCard = page.locator("#finding-detail .issue-set-card").filter({ hasText: "Menu items share one missing required parent" });
     await expect(parentIssueCard.count()).resolves.toBe(1);
     await parentIssueCard.locator(".issue-set-summary").click();
     await expect(parentIssueCard.locator(".issue-element-row").count()).resolves.toBe(2);
     await expect(parentIssueCard.locator(".issue-owner-card").textContent()).resolves.toContain("ul.primary-menu");
     await expect(parentIssueCard.locator(".issue-owner-card").textContent()).resolves.toContain("Current role");
-    await expect(page.locator("#filter-groups").isHidden()).resolves.toBe(true);
-    await page.getByRole("button", { name: "Show filters" }).click();
     await expect(page.locator("#filter-groups").isVisible()).resolves.toBe(true);
 
     const selectedReviewFingerprints = report.findingGroups?.find((group: { findingFingerprints: string[] }) => group.findingFingerprints.length > 1)?.findingFingerprints
@@ -126,14 +125,18 @@ describe("dashboard reviewer workflow", () => {
         notes: "Update the shared component and retest every affected page.",
       });
     }
-    await page.locator("#finding-review-filters").getByRole("button", { name: "Action required", exact: true }).click();
-    await expect(page.locator("#queue-count").textContent()).resolves.toContain(`${selectedReviewFingerprints.length} finding`);
-    await page.locator("#finding-review-filters").getByRole("button", { name: "All", exact: true }).click();
+    const actionRequiredChip = page.locator("#finding-review-filters").getByRole("button", { name: /^Action required/ });
+    await expect(actionRequiredChip.textContent()).resolves.toBe(`Action required ${selectedReviewFingerprints.length}`);
+    await actionRequiredChip.click();
+    await expect(actionRequiredChip.getAttribute("aria-pressed")).resolves.toBe("true");
+    await expect(page.locator("#finding-list .row").first().textContent()).resolves.toContain("Action required");
+    await page.locator("#finding-review-filters").getByRole("button", { name: /^All reviews/ }).click();
 
     await page.getByRole("button", { name: "Manual review" }).click();
-    await expect(page.locator("#queue-heading").textContent()).resolves.toBe("Manual review");
+    await expect(page.locator("#manual-tab").getAttribute("aria-pressed")).resolves.toBe("true");
     await expect(page.locator("#manual-status-filters").isVisible()).resolves.toBe(true);
-    await expect(page.locator("#finding-list .manual-nav").count()).resolves.toBeGreaterThan(0);
+    const manualTaskCount = await page.locator("#finding-list .row.manual").count();
+    expect(manualTaskCount).toBeGreaterThan(0);
     await page.locator("#finding-detail").getByRole("button", { name: "Pass", exact: true }).click();
     await page.locator("#save-state").getByText("Saved locally").waitFor();
     await page.locator("#finding-detail textarea").fill("Keyboard access and focus order verified with NVDA.");
@@ -153,9 +156,11 @@ describe("dashboard reviewer workflow", () => {
     expect(reviewedHtml).toContain("Manual accessibility review record");
     expect(reviewedHtml).toContain("Keyboard access and focus order verified with NVDA.");
 
-    await page.locator("#manual-status-filters").getByRole("button", { name: "Needs attention" }).click();
-    await expect(page.locator("#finding-list .manual-nav").count()).resolves.toBe(0);
-    await page.locator("#manual-status-filters").getByRole("button", { name: "All", exact: true }).click();
+    await expect(page.locator("#manual-status-filters").getByRole("button", { name: /^Needs attention/ }).count()).resolves.toBe(0);
+    await page.locator("#manual-status-filters").getByRole("button", { name: /^Not tested/ }).click();
+    await expect(page.locator("#finding-list .row.manual").count()).resolves.toBe(manualTaskCount - 1);
+    await page.locator("#manual-status-filters").getByRole("button", { name: /^All/ }).click();
+    await expect(page.locator("#manual-tab").textContent()).resolves.toBe(`Manual review 1/${manualTaskCount}`);
 
     await page.getByRole("button", { name: "Scan history" }).click();
     await page.locator("#history-list .history-row").first().waitFor();
@@ -307,7 +312,7 @@ describe("dashboard reviewer workflow", () => {
     });
 
     const disclosureGroup = report.findingGroups.find((group: { findingFingerprints: string[] }) => group.findingFingerprints.includes(disclosureFinding.fingerprint));
-    await page.locator(".component-group-nav").filter({ hasText: disclosureGroup.name }).click();
+    await page.locator("#finding-list .row.component").filter({ hasText: disclosureGroup.name }).click();
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Revealed interaction state");
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Disclosure");
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("#account-disclosure");
