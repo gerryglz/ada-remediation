@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Finding, ScanResult, Severity } from "./types.js";
 
-export const TOOL_VERSION = "0.2.0";
+export const TOOL_VERSION = "0.3.0";
 
 export function fingerprintFinding(
   ruleId: string,
