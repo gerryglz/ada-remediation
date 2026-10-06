@@ -82,8 +82,8 @@ Only scan systems you own or are authorized to test.
 ## Documentation
 
 - [Guide](docs/GUIDE.md): the dashboard, every scan method, reports, fixes, baselines, and history.
-- [Dashboard design](docs/DESIGN.md): the rules the interface follows.
-- [Changelog](CHANGELOG.md), [roadmap](docs/ROADMAP.md), and [upgrade notes](docs/UPGRADING.md).
+- [GitHub Actions example](docs/github-actions.yml): scan on every pull request.
+- [Changelog](CHANGELOG.md).
 
 ## Development
 

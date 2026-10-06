@@ -18,7 +18,7 @@ npm run build
 
 The examples below use `node dist/cli.js`, which works directly from a built checkout. If you want the shorter `ada-assistant` command, run `npm link` once and substitute `ada-assistant` for `node dist/cli.js` in any example.
 
-Existing local history is retained during a normal update. Version 0.2 reads history-wrapper schema `1.0` through an explicit migration and writes schema `1.1` when a migrated review is next saved. The downloaded report schema remains `1.0` for compatibility. Back up the history directory before pulling the update; see [Upgrade from 0.1 to 0.2](UPGRADING.md#upgrade-from-01-to-02).
+Existing local history is retained during a normal update. Version 0.2 reads history-wrapper schema `1.0` through an explicit migration and writes schema `1.1` when a migrated review is next saved. The downloaded report schema remains `1.0` for compatibility. Back up the history directory before pulling an update.
 
 ## Use the dashboard
 
@@ -71,7 +71,7 @@ The newest run is compared with the most recent earlier run that has the same co
 
 Resolved means the automated finding was not reproduced in the newer scan. Confirm the affected behavior manually and make sure both runs tested equivalent pages, states, authentication, and WCAG targets before treating it as verified remediation.
 
-When the same stable finding appears in the next scan for the same website, WCAG target, and interactive-state setting, its reviewer disposition and notes carry forward. New findings begin as **Unreviewed**. The complete 0.2 sequence is maintained in [docs/ROADMAP.md](ROADMAP.md).
+When the same stable finding appears in the next scan for the same website, WCAG target, and interactive-state setting, its reviewer disposition and notes carry forward. New findings begin as **Unreviewed**.
 
 W3C is presented as the primary accessibility standards source. Deque links are secondary and explain the axe-core rule that produced an automated finding; they do not replace the linked WCAG requirement.
 

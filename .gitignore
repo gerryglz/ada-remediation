@@ -9,3 +9,14 @@ ada-results.*
 !tests/fixtures/**/ada-results.*
 auth.json
 *-storage-state.json
+
+# Internal working notes: design rules, roadmap, upgrade notes. Kept on disk, not published.
+docs/internal/
+
+# Local environment and editor files
+.env
+.env.*
+.vscode/
+.idea/
+.claude/
+*.tsbuildinfo

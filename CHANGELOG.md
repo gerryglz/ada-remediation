@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Documentation prepared for a public repository: a short README with screenshots and a two-minute start, the full reference moved to `docs/GUIDE.md` and updated for the current dashboard, and `docs/DESIGN.md` rewritten around the rules the dashboard actually follows.
+- Documentation prepared for a public repository: a short README with screenshots and a two-minute start, and the full reference moved to `docs/GUIDE.md` and updated for the current dashboard. Internal design, roadmap, and upgrade notes are no longer part of the repository.
 - Dashboard header, scan form, and results summary redesigned: one results bar (URL, WCAG target, totals, review actions, exports) replaces the metric tiles and the summary toggle, run notes and comparison move into a disclosure, and the automated-testing disclaimer moves to the sidebar foot.
 - Dashboard sidebar redesigned: tabs and filter chips carry their own counts, empty filter values are hidden, and each finding row is a severity dot, a title, and one line of text metadata with no badges. The **Show filters** toggle and the finding-count line are gone.
 - Dashboard detail pane redesigned to be fix-first: the location, failed condition, what to change, rendered HTML context, and screenshot stay visible, and supporting material moves into collapsed sections. Severity is the only color-coded attribute; all other badges became text. Same-rule elements in an issue set are compact rows with one combined AI prompt.
