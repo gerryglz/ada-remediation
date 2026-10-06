@@ -15,6 +15,15 @@ export class PageNavigationError extends Error {
   }
 }
 
+// Identity of a page for crawl de-duplication. "/" and "/index.html" are the same page on
+// almost every host, and scanning both double-counts every finding on it.
+export function crawlKey(url: string): string {
+  const parsed = new URL(url);
+  parsed.hash = "";
+  parsed.pathname = parsed.pathname.replace(/\/index\.html?$/i, "/");
+  return parsed.href;
+}
+
 function assertUsableResponse(response: Response | null, url: string): void {
   if (response && response.status() >= 400) throw new Error(`HTTP ${response.status()} returned for ${url}`);
 }

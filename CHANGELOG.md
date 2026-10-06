@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added
+
+- Repository source findings now include inspect, change, and verify guidance, an issue category, and an AI remediation prompt, matching the detail of rendered-scan findings.
+
+### Fixed
+
+- Same-origin crawls no longer scan a directory URL and its `index.html` or `index.htm` file as two pages, which double-counted every finding on that page.
+
 ## 0.2.0 — 2026-09-01
 
 ### Added
