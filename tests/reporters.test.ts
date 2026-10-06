@@ -235,8 +235,10 @@ describe("reporters", () => {
     expect(html).toContain("Make the fix in your source, not here.");
     expect(html).not.toContain("Before and suggested after");
     expect(html).not.toContain("Suggested after — starting point");
-    expect(html).toContain("Expected parent roles");
-    expect(html).toContain("' · Expected parent roles: '");
+    expect(html).toContain("fact('Current role'");
+    expect(html).toContain("fact('Needs one of'");
+    expect(html).toContain("function elementName(f)");
+    expect(html).not.toContain("element-markup',item.evidence");
     expect(html).toContain("rel=\"icon\"");
     expect(html).toContain("data:image/svg+xml");
     expect(html).toContain("--mono:ui-monospace");
