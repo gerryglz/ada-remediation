@@ -194,12 +194,13 @@ function affectedPages(finding: Finding): SourceLocation[] {
   return [...new Map(locations.map((location) => [location.url, location])).values()];
 }
 
-function failedCondition(finding: Finding): string {
-  return finding.remediationGuidance?.inspect.find((item) => item.startsWith("Failed condition:"))?.replace(/^Failed condition:\s*/, "") ?? finding.impact;
+function failedConditions(finding: Finding): string[] {
+  const found = (finding.remediationGuidance?.inspect ?? []).filter((item) => item.startsWith("Failed condition:")).map((item) => item.replace(/^Failed condition:\s*/, ""));
+  return found.length ? found : [finding.impact];
 }
 
-function failureHtml(failed: string, label: string): string {
-  return `<div class="callout"><span class="label">${label}</span><p>${technicalText(failed)}</p></div>`;
+function failureHtml(conditions: string[], label: string): string {
+  return `<div class="callout"><span class="label">${label}</span>${conditions.length > 1 ? list("ul", conditions) : `<p>${technicalText(conditions[0])}</p>`}</div>`;
 }
 
 function stateText(location: SourceLocation): string {
@@ -242,8 +243,10 @@ function findingCard(finding: Finding, result: ScanResult): string {
     : `${selector} in ${escapeHtml(locationText(finding))}`;
   const changes = finding.remediationGuidance?.change.length ? finding.remediationGuidance.change : [finding.remediation];
   const suggestion = finding.codeSuggestion;
+  const lead = suggestion ? `<p class="lead-fix">${technicalText(suggestion.title)}</p>` : "";
+  const why = suggestion ? `${suggestion.reviewRequired ? "Review required. " : ""}${changes.includes(suggestion.rationale) ? "" : suggestion.rationale}` : "";
   const suggested = suggestion
-    ? `<p class="note">${technicalText(`Suggested change: ${suggestion.title}. ${suggestion.reviewRequired ? "Review required. " : ""}${changes.includes(suggestion.rationale) ? "" : suggestion.rationale}`)}</p>${suggestion.alternatives?.length ? `<p class="note">Other valid approach</p>${list("ul", suggestion.alternatives)}` : ""}`
+    ? `${why ? `<p class="note">${technicalText(why)}</p>` : ""}${suggestion.alternatives?.length ? `<p class="note">Other valid approach</p>${list("ul", suggestion.alternatives)}` : ""}`
     : "";
   const context = finding.renderedHtmlContext ?? { html: finding.evidence, scope: "element" as const, truncated: false };
   const contextLabel = `Original browser HTML · ${context.scope === "parent" ? "affected element and parent" : "affected element"}${context.truncated ? " · truncated, inspect the selector for the full DOM" : ""}`;
@@ -262,10 +265,10 @@ function findingCard(finding: Finding, result: ScanResult): string {
   const extra = [
     inspect.length ? more("What to inspect", list("ul", inspect)) : "",
     more("Why this was flagged", `<p>${technicalText(finding.explanation)}</p><p class="muted">Detected by rule <code>${escapeHtml(finding.ruleId)}</code> · ${capitalize(finding.confidence)} confidence · human verification still required</p>`),
-    pages.length > 1 ? more(`Affected pages (${pages.length})`, `<p class="muted">The same rule, selector, and detected markup appeared on ${pages.length} tested pages (${findingOccurrenceCount(finding)} total occurrences). Retest each one after the fix.</p><ul>${pages.map((page) => `<li>${link(page.url!, page.pageTitle || page.url!)}${page.pageTitle ? ` <span class="muted">${escapeHtml(page.url!)}</span>` : ""}</li>`).join("")}</ul>`) : "",
+    pages.length > 1 ? more(`Affected pages (${pages.length})`, `<p class="muted">Same issue on ${pages.length} tested pages (${findingOccurrenceCount(finding)} total occurrences). Retest each one after the fix.</p><ul>${pages.map((page) => `<li>${link(page.url!, page.pageTitle || page.url!)}${page.pageTitle ? ` <span class="muted">${escapeHtml(page.url!)}</span>` : ""}</li>`).join("")}</ul>`) : "",
     more("How to verify the fix", list("ol", finding.remediationGuidance?.verify.length ? finding.remediationGuidance.verify : DEFAULT_VERIFY)),
     references ? more("Standards and references", `<ul>${references}</ul>`) : "",
-    promptHtml("AI remediation prompt", prompt, "Paste this into a coding agent. It asks the agent to find the source that produces the affected markup before editing."),
+    promptHtml("AI remediation prompt", prompt, "Paste into a coding agent."),
   ].join("");
 
   return `<article class="finding ${finding.severity}" id="finding-${finding.fingerprint}" data-severity="${finding.severity}" data-level="${escapeHtml(finding.wcagLevel ?? "")}" data-disposition="${review.disposition}">
@@ -273,10 +276,10 @@ function findingCard(finding: Finding, result: ScanResult): string {
     <h2>${technicalText(finding.title)}</h2>
     <p class="where">Review disposition: <strong>${findingDispositionLabels[review.disposition]}</strong></p>${review.notes ? `<p class="review-notes">${escapeHtml(review.notes)}</p>` : ""}
     <p class="where">${where}</p>${finding.location.interactionState ? `<p class="note">${escapeHtml(stateText(finding.location))}</p>` : ""}
-    ${failureHtml(failedCondition(finding), "Failed condition")}
-    <h3>What to change</h3>${list("ul", changes)}${finding.safeFix ? `<p class="note">Safe automated fix available: ${escapeHtml(finding.safeFix.description)}</p>` : ""}${suggested}
+    ${failureHtml(failedConditions(finding), "Failed condition")}
+    <h3>What to change</h3>${lead}${list("ul", changes)}${finding.safeFix ? `<p class="note">Safe automated fix available: ${escapeHtml(finding.safeFix.description)}</p>` : ""}${suggested}
     ${contrastHtml(finding)}
-    <h3>Rendered HTML context</h3>${codeBlock(contextLabel, context.html)}<p class="note">This is browser output and may come from a framework, CMS, template, or component. Apply the change in the maintained source. It is not a generated replacement block.</p>
+    <h3>Rendered HTML context</h3>${codeBlock(contextLabel, context.html)}<p class="note">This is what the browser rendered. Make the fix in your source, not here.</p>
     ${shotHtml(finding)}
     <div class="more-list">${extra}</div>
   </article>`;
@@ -289,7 +292,7 @@ function manualChecklistHtml(result: ScanResult): string {
   const counts = { "not-tested": 0, pass: 0, "needs-attention": 0, "not-applicable": 0 };
   checks.forEach((check) => counts[reviews[check.id]?.status ?? "not-tested"]++);
   const runNotes = result.review?.notes ? `<p class="where">Run-level reviewer notes</p><p class="review-notes">${escapeHtml(result.review.notes)}</p>` : "";
-  return `<section aria-labelledby="manual-review-heading"><h2 class="section-title" id="manual-review-heading">Manual accessibility review record</h2><p>Required human review: automated tools cannot determine these requirements reliably. Each task records a human outcome and supporting notes. <strong id="manual-progress">${counts.pass} pass · ${counts["needs-attention"]} need attention · ${counts["not-tested"]} not tested · ${counts["not-applicable"]} not applicable</strong></p>${runNotes}${checks.map((check) => {
+  return `<section aria-labelledby="manual-review-heading"><h2 class="section-title" id="manual-review-heading">Manual accessibility review record</h2><p>Required human review: automated tools cannot check these. <strong id="manual-progress">${counts.pass} pass · ${counts["needs-attention"]} need attention · ${counts["not-tested"]} not tested · ${counts["not-applicable"]} not applicable</strong></p>${runNotes}${checks.map((check) => {
     const review = reviews[check.id] ?? { status: "not-tested" as const, notes: "" };
     return `<div class="check"><p class="meta"><strong>${labels[review.status]}</strong> · ${escapeHtml(check.category)} · WCAG Level ${escapeHtml(check.wcagLevel)}</p><h3>${escapeHtml(check.title)}</h3><p>${escapeHtml(check.description)}</p>${review.notes ? `<p class="review-notes">${escapeHtml(review.notes)}</p>` : ""}${list("ol", check.steps)}<p class="note">${check.wcag.map(wcagLink).join(" · ")}</p></div>`;
   }).join("")}</section>`;
@@ -300,7 +303,7 @@ function componentGroupsHtml(result: ScanResult, groups: FindingGroup[]): string
   const byFingerprint = new Map(result.findings.map((finding) => [finding.fingerprint, finding]));
   const membersOf = (fingerprints: string[]): Finding[] => fingerprints.map((fingerprint) => byFingerprint.get(fingerprint)).filter((finding): finding is Finding => Boolean(finding));
   const worst = (members: Finding[]): Severity => members.reduce<Severity>((current, finding) => (severityRank[finding.severity] > severityRank[current] ? finding.severity : current), "minor");
-  return `<section aria-labelledby="components-heading"><h2 class="section-title" id="components-heading">Components and issue patterns</h2><p>Each group combines findings that share an owning component or a remediation theme. Fix the shared cause once, then verify every affected element.</p>${groups.map((group) => {
+  return `<section aria-labelledby="components-heading"><h2 class="section-title" id="components-heading">Components and issue patterns</h2><p>Fix the shared cause once, then check each element.</p>${groups.map((group) => {
     const members = membersOf(group.findingFingerprints);
     const clusters = group.issueClusters?.length ? group.issueClusters : buildFindingIssueClusters(members);
     const corrections = clusters.length > 1 ? group.sharedCorrections.filter((correction) => correction.appliesTo > 1) : [];
@@ -311,10 +314,10 @@ function componentGroupsHtml(result: ScanResult, groups: FindingGroup[]): string
       const owner = target
         ? `<span class="label">Likely shared owner</span><p class="where"><code>${escapeHtml(target.selector)}</code> · Current role: ${escapeHtml(target.currentRole ?? "No explicit role")} · Expected parent roles: ${target.suggestedRoles.map((role) => `<code>${escapeHtml(role)}</code>`).join(" ")}</p><p class="note">${escapeHtml(target.reason)}</p>${codeBlock("Owner markup", target.html)}`
         : "";
-      return `<details class="child ${worst(elements)}"><summary><span class="dot"></span><span class="row-main"><span class="row-title">${technicalText(cluster.name)}</span><span class="row-meta">${escapeHtml([findingMeta(elements[0], result), plural(elements.length, "element"), plural(cluster.pages.length, "page")].join(" · "))}</span></span></summary><div class="child-body ${worst(elements)}">${failureHtml(cluster.failedCondition, elements.length > 1 ? "Shared failure" : "Failed condition")}<span class="label">What to change</span>${cluster.parentResolution ? `<p>${technicalText(cluster.parentResolution)}</p>` : ""}<p>${technicalText(cluster.recommendedAction)}</p>${owner}<span class="label">Affected elements (${elements.length})</span><ul>${elements.map((finding) => `<li><a href="#finding-${finding.fingerprint}"><code>${escapeHtml(finding.location.selector || finding.ruleId)}</code></a>${finding.location.url ? ` on ${link(finding.location.url, finding.location.pageTitle || finding.location.url)}` : ""}</li>`).join("")}</ul></div></details>`;
+      return `<details class="child ${worst(elements)}"><summary><span class="dot"></span><span class="row-main"><span class="row-title">${technicalText(cluster.name)}</span><span class="row-meta">${escapeHtml([findingMeta(elements[0], result), plural(elements.length, "element"), plural(cluster.pages.length, "page")].join(" · "))}</span></span></summary><div class="child-body ${worst(elements)}">${failureHtml(elements.length === 1 ? failedConditions(elements[0]) : [cluster.failedCondition], elements.length > 1 ? "Shared failure" : "Failed condition")}<span class="label">What to change</span>${cluster.parentResolution ? `<p>${technicalText(cluster.parentResolution)}</p>` : ""}<p>${technicalText(cluster.recommendedAction)}</p>${owner}<span class="label">Affected elements (${elements.length})</span><ul>${elements.map((finding) => `<li><a href="#finding-${finding.fingerprint}"><code>${escapeHtml(finding.location.selector || finding.ruleId)}</code></a>${finding.location.url ? ` on ${link(finding.location.url, finding.location.pageTitle || finding.location.url)}` : ""}</li>`).join("")}</ul></div></details>`;
     }).join("");
     const prompt = group.remediationPrompt ?? buildGroupRemediationPrompt(group, members);
-    return `<article class="finding ${worst(members)}"><p class="meta"><span class="pill">${worst(members)}</span>${escapeHtml([group.kind === "pattern" ? "Issue pattern" : "Component", group.category, plural(clusters.length, "issue"), plural(members.length, "element"), plural(group.pages.length, "page")].join(" · "))}</p><h3 class="group-name">${escapeHtml(group.name)}</h3>${group.selector && group.kind !== "pattern" ? `<p class="where">Component selector <code>${escapeHtml(group.selector)}</code></p>` : ""}${corrections.length ? `<h4>Corrections shared by multiple findings</h4><ul>${corrections.map((correction) => `<li>${technicalText(correction.text)}${correction.appliesTo < members.length ? ` <span class="muted">Applies to ${correction.appliesTo} of ${members.length} findings.</span>` : ""}</li>`).join("")}</ul>` : ""}<h4>Issue sets and affected elements</h4>${issueSets}<div class="more-list">${promptHtml("Combined AI remediation prompt", prompt, "This single prompt includes every child finding in the group so a coding agent can make one coordinated change.")}</div></article>`;
+    return `<article class="finding ${worst(members)}"><p class="meta"><span class="pill">${worst(members)}</span>${escapeHtml([group.kind === "pattern" ? "Issue pattern" : "Component", group.category, plural(clusters.length, "issue"), plural(members.length, "element"), plural(group.pages.length, "page")].join(" · "))}</p><h3 class="group-name">${escapeHtml(group.name)}</h3>${group.selector && group.kind !== "pattern" ? `<p class="where">Component selector <code>${escapeHtml(group.selector)}</code></p>` : ""}${corrections.length ? `<h4>Corrections shared by multiple findings</h4><ul>${corrections.map((correction) => `<li>${technicalText(correction.text)}${correction.appliesTo < members.length ? ` <span class="muted">Applies to ${correction.appliesTo} of ${members.length} findings.</span>` : ""}</li>`).join("")}</ul>` : ""}<h4>Issue sets and affected elements</h4>${issueSets}<div class="more-list">${promptHtml("Combined AI remediation prompt", prompt, "One prompt covers every finding in this group.")}</div></article>`;
   }).join("")}</section>`;
 }
 
@@ -355,10 +358,10 @@ export function htmlReport(result: ScanResult): string {
     ? `<div class="incomplete"><strong>Incomplete pages</strong><ul>${metadata.incomplete.map((item) => `<li>${link(item.url, item.url)} — ${escapeHtml(incompleteDetail(item))}</li>`).join("")}</ul></div>`
     : "";
   const interactionFailures = metadata.interactionStateFailures?.length
-    ? `<div class="incomplete"><strong>Interactive states skipped</strong><p>These controls matched a conservative recipe but could not be safely opened and restored. Review them manually.</p><ul>${metadata.interactionStateFailures.map((item) => `<li>${link(item.url, item.url)} — ${interactionTypeLabel(item.type)} “${escapeHtml(item.name)}” <code>${escapeHtml(item.trigger)}</code>: ${escapeHtml(item.reason)}</li>`).join("")}</ul></div>`
+    ? `<div class="incomplete"><strong>Interactive states skipped</strong><p>These could not be opened and restored safely. Check them by hand.</p><ul>${metadata.interactionStateFailures.map((item) => `<li>${link(item.url, item.url)} — ${interactionTypeLabel(item.type)} “${escapeHtml(item.name)}” <code>${escapeHtml(item.trigger)}</code>: ${escapeHtml(item.reason)}</li>`).join("")}</ul></div>`
     : "";
   const skippedAssets = metadata.skippedAssets?.length
-    ? `<details class="incomplete"><summary>Skipped non-HTML assets · ${metadata.skippedAssets.length}</summary><p>These files were intentionally excluded from the HTML crawl. PDFs and other downloads need a format-specific accessibility review.</p><ul>${metadata.skippedAssets.map((item) => `<li>${link(item.url, item.url)} — ${escapeHtml(item.reason)}</li>`).join("")}</ul></details>`
+    ? `<details class="incomplete"><summary>Skipped non-HTML assets · ${metadata.skippedAssets.length}</summary><p>Not HTML, so not scanned. PDFs and downloads need their own review.</p><ul>${metadata.skippedAssets.map((item) => `<li>${link(item.url, item.url)} — ${escapeHtml(item.reason)}</li>`).join("")}</ul></details>`
     : "";
   const groups = result.findingGroups?.length ? result.findingGroups : buildFindingGroups(result.findings);
   const findingIndex = result.findings.length
@@ -374,7 +377,7 @@ ${incomplete}
 ${interactionFailures}
 ${skippedAssets}
 <main>
-<section aria-labelledby="findings-heading"><h2 class="section-title" id="findings-heading">Findings</h2>${reviewSummary ? `<p>Automated finding review: ${reviewSummary}. A review disposition records a human decision and does not change whether the scan reports the finding.</p>` : ""}${filtersHtml(result)}${findingIndex}</section>
+<section aria-labelledby="findings-heading"><h2 class="section-title" id="findings-heading">Findings</h2>${reviewSummary ? `<p>Automated finding review: ${reviewSummary}.</p>` : ""}${filtersHtml(result)}${findingIndex}</section>
 ${componentGroupsHtml(result, groups)}
 ${result.findings.map((finding) => findingCard(finding, result)).join("\n")}
 ${manualChecklistHtml(result)}

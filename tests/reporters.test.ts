@@ -111,7 +111,7 @@ describe("reporters", () => {
     expect(html).toContain("Original browser HTML · affected element and parent");
     expect(html).toContain("Quarterly results");
     expect(html).toContain("Visual evidence");
-    expect(html).toContain("It is not a generated replacement block");
+    expect(html).toContain("Make the fix in your source, not here.");
     expect(html).not.toContain("Before — detected markup");
     expect(html).not.toContain("Suggested after — starting point");
     expect(html).toContain("Open larger screenshot for");
@@ -232,7 +232,7 @@ describe("reporters", () => {
     expect(html).toContain("findingRenderedContext");
     expect(html).toContain("contextBlock");
     expect(html).toContain("Original browser HTML");
-    expect(html).toContain("It is not a generated replacement block");
+    expect(html).toContain("Make the fix in your source, not here.");
     expect(html).not.toContain("Before and suggested after");
     expect(html).not.toContain("Suggested after — starting point");
     expect(html).toContain("Expected parent roles");
@@ -255,7 +255,7 @@ describe("reporters", () => {
     expect(html).toContain("Authenticated scan");
     expect(html).toContain("Prepare rerun");
     expect(html).not.toContain('id="finding-review-filters"');
-    expect(html).toContain("Review disposition");
+    expect(html).toContain("el('label','review-field','Review'+scope+' ')");
     expect(html).toContain("Accepted risk");
     expect(html).toContain("False positive");
     expect(html).toContain("reviewControl");
@@ -280,7 +280,11 @@ describe("reporters", () => {
     expect(html).toContain("findingBody");
     expect(html).toContain("Likely shared owner");
     expect(html).toContain("Affected elements (");
-    expect(html).toContain("do not add a role to a broad wrapper only to silence the scanner");
+    expect(html).toContain("Do not add a role to a wrapper just to silence the scanner.");
+    expect(html).toContain("conditions.slice(0,3)");
+    expect(html).toContain("'On '+own.length+' pages'");
+    expect(html).toContain("function failedConditionsOf(f)");
+    expect(html).toContain("el('p','lead-fix')");
     expect(html).toContain("Issues in this component");
     expect(html).toContain("list-label");
     expect(html).toContain("Individual findings");
@@ -294,7 +298,7 @@ describe("reporters", () => {
     expect(html).toContain("Issue patterns");
     expect(html).toContain("combinedGroupPrompt");
     expect(html).toContain("Combined AI remediation prompt");
-    expect(html).toContain("This single prompt includes every child finding");
+    expect(html).toContain("One prompt covers every finding in this group.");
     expect(html).toContain("el('span','pill '+f.severity,f.severity)");
     expect(html).toContain("AI remediation prompt");
     expect(html).toContain("Copy AI prompt");
@@ -333,7 +337,7 @@ describe("reporters", () => {
     expect(html).toContain("wcagLevel:selectedLevel");
     expect(html).toContain("result.metadata.wcagLevel||'AA'");
     expect(html).toContain("pages tested");
-    expect(html).toContain("zero automated axe-core findings");
+    expect(html).toContain("No automated findings. That is not a pass: continue with Manual review.");
     expect(html).toContain("renderTabs");
     expect(html).toContain("image-dialog");
     expect(html).toContain('id="image-dialog" aria-labelledby="dialog-title"');

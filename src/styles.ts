@@ -76,4 +76,8 @@ export const sharedCss = `
     .element-main{display:grid;gap:4px;min-width:0;justify-items:start}
     .element-markup{font-family:var(--mono);font-size:12px;color:var(--muted);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .element-note{font-size:13px;color:var(--body)}
+    .callout ul{margin:0;padding-left:18px}
+    .callout li{color:var(--ink)}
+    .callout details{margin-top:6px}
+    .detail .lead-fix{font-weight:600;color:var(--ink)}
 `;
