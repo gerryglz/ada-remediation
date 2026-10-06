@@ -70,6 +70,8 @@ describe("dashboard reviewer workflow", () => {
     await page.getByRole("button", { name: "Scan page" }).click();
 
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
+    await expect(page.locator("#results-heading").evaluate((element) => element === document.activeElement), "focus moves to the results when a scan finishes").resolves.toBe(true);
+    await expect(page.locator("#scan-button").isHidden()).resolves.toBe(true);
     await expect(page.locator("#result-source").getAttribute("href")).resolves.toBe(fixture.url);
     await expect(page.locator("#result-auth").isHidden()).resolves.toBe(true);
     await expect(page.locator("#notice").textContent()).resolves.toContain("Automated results cannot certify");
@@ -118,7 +120,7 @@ describe("dashboard reviewer workflow", () => {
     await page.locator("#save-state").getByText("Saved locally").waitFor();
     await page.locator("#finding-detail .review-notes > summary").first().click();
     await page.locator("#finding-detail .review-notes textarea").first().fill("Update the shared component and retest every affected page.");
-    await page.getByRole("button", { name: "Save review" }).click();
+    await page.locator("#finding-detail .review-notes textarea").first().blur();
     await page.locator("#save-state").getByText("Saved locally").waitFor();
     const findingReviewJsonHref = await page.locator("#json-download").getAttribute("href");
     const findingReviewJson = await (await page.request.get(`${dashboard.url}${findingReviewJsonHref}`)).json();
@@ -143,9 +145,12 @@ describe("dashboard reviewer workflow", () => {
     await page.locator("#finding-detail").getByRole("button", { name: "Pass", exact: true }).click();
     await page.locator("#save-state").getByText("Saved locally").waitFor();
     await page.locator("#finding-detail textarea").fill("Keyboard access and focus order verified with NVDA.");
+    await page.locator("#finding-detail textarea").blur();
+    await page.locator("#save-state").getByText("Saved locally").waitFor();
+    await expect(page.getByRole("button", { name: "Save review" }).count()).resolves.toBe(0);
     await page.getByRole("button", { name: "Notes and comparison" }).click();
     await page.locator("#run-notes").fill("Keyboard review assigned to the accessibility team.");
-    await page.getByRole("button", { name: "Save review" }).click();
+    await page.locator("#run-notes").blur();
     await page.locator("#save-state").getByText("Saved locally").waitFor();
     const reviewedJsonHref = await page.locator("#json-download").getAttribute("href");
     const reviewedJson = await (await page.request.get(`${dashboard.url}${reviewedJsonHref}`)).json();
@@ -204,7 +209,7 @@ describe("dashboard reviewer workflow", () => {
     await page.locator("#crawl").check();
     await page.locator("#max-pages").fill("3");
     await page.locator("#screenshots").uncheck();
-    await page.getByRole("button", { name: "Scan page" }).click();
+    await page.getByRole("button", { name: "Scan site" }).click();
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
 
     const report = await (await page.request.get(`${dashboard.url}/api/report.json`)).json();

@@ -230,7 +230,7 @@ function contrastHtml(finding: Finding): string {
 
 function shotHtml(finding: Finding): string {
   return finding.screenshot?.dataUrl.startsWith("data:image/")
-    ? `<h3>Visual evidence</h3><button class="shot" type="button" aria-label="Open larger screenshot for ${escapeHtml(finding.location.selector || finding.title)}"><img src="${escapeHtml(finding.screenshot.dataUrl)}" alt="${escapeHtml(finding.screenshot.description)}" loading="lazy"></button>`
+    ? `<h3>Visual evidence</h3><button class="shot" type="button" aria-label="Open larger screenshot for ${escapeHtml(finding.location.selector || finding.title)}"><img src="${escapeHtml(finding.screenshot.dataUrl)}" alt="${escapeHtml(finding.screenshot.description)}" width="${finding.screenshot.width}" height="${finding.screenshot.height}" loading="lazy"></button>`
     : "";
 }
 
