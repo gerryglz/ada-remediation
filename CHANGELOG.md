@@ -16,8 +16,14 @@ All notable changes to this project will be documented in this file.
 - Downloadable HTML report redesigned to match the dashboard, sharing its style sheet. Report totals, filters, and review dispositions are text and chips instead of metric tiles and badges.
 - Review dispositions inside a component are set per component, per issue set, or per element; reviewer notes are recorded per issue set or per component.
 
+- Reviewer notes save when their field loses focus, so the **Save review** button is gone. Unsaved notes are also sent when the page closes.
+- The scan button reads **Scan site** while crawling is on, the URL field no longer starts with a prefilled address, and the dashboard has a skip link.
+
 ### Fixed
 
+- A failure to save a scan to history is now shown with the results instead of in the collapsed scan form, where it was never seen.
+- Keyboard focus moves to the results when a scan finishes instead of staying on the hidden scan button.
+- Screenshots reserve their space while loading, and scrolling to a selected finding respects reduced-motion settings.
 - The dashboard no longer shows the **Authenticated scan** label on public scans.
 
 - Same-origin crawls no longer scan a directory URL and its `index.html` or `index.htm` file as two pages, which double-counted every finding on that page.
