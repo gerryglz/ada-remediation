@@ -318,7 +318,11 @@ describe("dashboard reviewer workflow", () => {
     });
 
     const disclosureGroup = report.findingGroups.find((group: { findingFingerprints: string[] }) => group.findingFingerprints.includes(disclosureFinding.fingerprint));
-    await page.locator("#finding-list .row.component").filter({ hasText: disclosureGroup.name }).click();
+    expect(disclosureGroup.kind, "these findings share a theme, not an owning component").toBe("pattern");
+    await expect(page.locator("#finding-list .row.component").filter({ hasText: disclosureGroup.name }).count(), "theme groups are not listed as components").resolves.toBe(0);
+    await page.locator(`#finding-list .row[data-key="${disclosureFinding.fingerprint}"]`).click();
+    await expect(page.locator("#finding-detail").textContent()).resolves.toContain("AI remediation prompt");
+    await expect(page.locator("#finding-detail").textContent()).resolves.not.toContain("Combined AI remediation prompt");
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Revealed interaction state");
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("Disclosure");
     await expect(page.locator("#finding-detail").textContent()).resolves.toContain("#account-disclosure");

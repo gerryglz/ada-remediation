@@ -130,7 +130,8 @@ describe("reporters", () => {
     expect(html).toContain("2 pages");
     expect(html).not.toContain("COMMON · 2 PAGES");
     expect(html).toContain("Affected pages");
-    expect(html).toContain("Components and issue patterns");
+    expect(html).toContain('id="components-heading">Components</h2>');
+    expect(html).not.toContain("issue patterns");
     expect(html).toContain("Primary navigation");
     expect(html).toContain("Corrections shared by multiple findings");
     expect(html).toContain("Issue sets and affected elements");
@@ -302,7 +303,8 @@ describe("reporters", () => {
     expect(html).toContain("Retest each one after the fix.");
     expect(html).toContain("Component selector ");
     expect(html).not.toContain("const pageSection=titledSection('Affected pages')");
-    expect(html).toContain("Issue patterns");
+    expect(html).not.toContain("Issue patterns");
+    expect(html).toContain("filter(group=>group.kind!=='pattern')");
     expect(html).toContain("combinedGroupPrompt");
     expect(html).toContain("Combined AI remediation prompt");
     expect(html).toContain("One prompt covers every finding in this group.");

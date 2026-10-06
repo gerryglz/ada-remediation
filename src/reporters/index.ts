@@ -304,7 +304,7 @@ function componentGroupsHtml(result: ScanResult, groups: FindingGroup[]): string
   const byFingerprint = new Map(result.findings.map((finding) => [finding.fingerprint, finding]));
   const membersOf = (fingerprints: string[]): Finding[] => fingerprints.map((fingerprint) => byFingerprint.get(fingerprint)).filter((finding): finding is Finding => Boolean(finding));
   const worst = (members: Finding[]): Severity => members.reduce<Severity>((current, finding) => (severityRank[finding.severity] > severityRank[current] ? finding.severity : current), "minor");
-  return `<section aria-labelledby="components-heading"><h2 class="section-title" id="components-heading">Components and issue patterns</h2><p>Fix the shared cause once, then check each element.</p>${groups.map((group) => {
+  return `<section aria-labelledby="components-heading"><h2 class="section-title" id="components-heading">Components</h2><p>Fix the shared cause once, then check each element.</p>${groups.map((group) => {
     const members = membersOf(group.findingFingerprints);
     const clusters = group.issueClusters?.length ? group.issueClusters : buildFindingIssueClusters(members);
     const corrections = clusters.length > 1 ? group.sharedCorrections.filter((correction) => correction.appliesTo > 1) : [];
@@ -318,7 +318,7 @@ function componentGroupsHtml(result: ScanResult, groups: FindingGroup[]): string
       return `<details class="child ${worst(elements)}"><summary><span class="dot"></span><span class="row-main"><span class="row-title">${technicalText(cluster.name)}</span><span class="row-meta">${escapeHtml([findingMeta(elements[0], result), plural(elements.length, "element"), plural(cluster.pages.length, "page")].join(" · "))}</span></span></summary><div class="child-body ${worst(elements)}">${failureHtml(elements.length === 1 ? failedConditions(elements[0]) : [cluster.failedCondition], elements.length > 1 ? "Shared failure" : "Failed condition")}<span class="label">What to change</span>${cluster.parentResolution ? `<p>${technicalText(cluster.parentResolution)}</p>` : ""}<p>${technicalText(cluster.recommendedAction)}</p>${owner}<span class="label">Affected elements (${elements.length})</span><ul>${elements.map((finding) => `<li><a href="#finding-${finding.fingerprint}"><code>${escapeHtml(finding.location.selector || finding.ruleId)}</code></a>${finding.location.url ? ` on ${link(finding.location.url, finding.location.pageTitle || finding.location.url)}` : ""}</li>`).join("")}</ul></div></details>`;
     }).join("");
     const prompt = group.remediationPrompt ?? buildGroupRemediationPrompt(group, members);
-    return `<article class="finding ${worst(members)}"><p class="meta"><span class="pill">${worst(members)}</span>${escapeHtml([group.kind === "pattern" ? "Issue pattern" : "Component", group.category, plural(clusters.length, "issue"), plural(members.length, "element"), plural(group.pages.length, "page")].join(" · "))}</p><h3 class="group-name">${escapeHtml(group.name)}</h3>${group.selector && group.kind !== "pattern" ? `<p class="where">Component selector <code>${escapeHtml(group.selector)}</code></p>` : ""}${corrections.length ? `<h4>Corrections shared by multiple findings</h4><ul>${corrections.map((correction) => `<li>${technicalText(correction.text)}${correction.appliesTo < members.length ? ` <span class="muted">Applies to ${correction.appliesTo} of ${members.length} findings.</span>` : ""}</li>`).join("")}</ul>` : ""}<h4>Issue sets and affected elements</h4>${issueSets}<div class="more-list">${promptHtml("Combined AI remediation prompt", prompt, "One prompt covers every finding in this group.")}</div></article>`;
+    return `<article class="finding ${worst(members)}"><p class="meta"><span class="pill">${worst(members)}</span>${escapeHtml(["Component", group.category, plural(clusters.length, "issue"), plural(members.length, "element"), plural(group.pages.length, "page")].join(" · "))}</p><h3 class="group-name">${escapeHtml(group.name)}</h3>${group.selector ?`<p class="where">Component selector <code>${escapeHtml(group.selector)}</code></p>` : ""}${corrections.length ? `<h4>Corrections shared by multiple findings</h4><ul>${corrections.map((correction) => `<li>${technicalText(correction.text)}${correction.appliesTo < members.length ? ` <span class="muted">Applies to ${correction.appliesTo} of ${members.length} findings.</span>` : ""}</li>`).join("")}</ul>` : ""}<h4>Issue sets and affected elements</h4>${issueSets}<div class="more-list">${promptHtml("Combined AI remediation prompt", prompt, "One prompt covers every finding in this group.")}</div></article>`;
   }).join("")}</section>`;
 }
 
@@ -379,7 +379,7 @@ ${interactionFailures}
 ${skippedAssets}
 <main>
 <section aria-labelledby="findings-heading"><h2 class="section-title" id="findings-heading">Findings</h2>${reviewSummary ? `<p>Automated finding review: ${reviewSummary}.</p>` : ""}${filtersHtml(result)}${findingIndex}</section>
-${componentGroupsHtml(result, groups)}
+${componentGroupsHtml(result, groups.filter((group) => group.kind !== "pattern"))}
 ${result.findings.map((finding) => findingCard(finding, result)).join("\n")}
 ${manualChecklistHtml(result)}
 </main>
