@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { Finding, ScanResult, Severity } from "../types.js";
+import type { Finding, FindingGroup, ScanResult, Severity, SourceLocation } from "../types.js";
+import { sharedCss } from "../styles.js";
 import { escapeHtml, severityRank } from "../utils.js";
 import { WCAG_VERSION, wcagCriterionLabel, wcagUnderstandingUrl } from "../wcag.js";
 import { manualReviewChecklist } from "../manual.js";
@@ -42,23 +43,6 @@ function scanProfileText(result: ScanResult): string | undefined {
   const profile = result.metadata.profile;
   if (!profile) return undefined;
   return `${profile.crawl ? `Crawl up to ${profile.maxPages} pages` : "Single page"}; screenshots ${profile.captureScreenshots ? "on" : "off"}; interactive states ${profile.interactionStates ? "on" : "off"}; ${profile.authentication === "storage-state" ? "authenticated session" : "public session"}`;
-}
-
-function findingLevelBadge(finding: Finding): string {
-  if (!finding.wcagLevel) return "";
-  const level = escapeHtml(finding.wcagLevel);
-  return `<span class="wcag-level-badge level-${level.toLowerCase()}" aria-label="WCAG Level ${level}" title="WCAG Level ${level}">${level}</span>`;
-}
-
-function recurringFindingBadges(finding: Finding): string {
-  if (finding.scope !== "common") return "";
-  const category = escapeHtml(finding.componentCategory ?? findingComponentCategory(finding));
-  return `<span class="component-badge">${category}</span><span class="page-count-badge">${affectedPageCount(finding)} PAGES</span>`;
-}
-
-function issueCategoryBadge(finding: Finding): string {
-  const category = finding.issueCategory ?? findingIssueCategory(finding);
-  return `<span class="issue-category-badge category-${category.toLowerCase()}" aria-label="Issue category: ${escapeHtml(category)}">${escapeHtml(category)}</span>`;
 }
 
 const findingDispositionLabels = {
@@ -141,81 +125,162 @@ export function jsonReport(result: ScanResult): string {
   return JSON.stringify(result, null, 2);
 }
 
-function remediationGuidanceHtml(finding: Finding): string {
-  const guidance = finding.remediationGuidance;
-  if (!guidance) return `<p>${escapeHtml(finding.remediation)}</p>`;
-  const list = (items: string[]): string => `<ul>${items.map((item) => `<li>${technicalText(item)}</li>`).join("")}</ul>`;
-  const failedCondition = guidance.inspect.find((item) => item.startsWith("Failed condition:"))?.replace(/^Failed condition:\s*/, "") ?? finding.impact;
-  const roleValues = failedCondition.match(/ARIA parents? role not present:\s*(.+)$/i)?.[1].split(",").map((item) => item.trim()).filter(Boolean) ?? [];
-  const expectedRoles = roleValues.length ? `<div class="technical-values"><span>Expected parent roles</span>${roleValues.map((value) => `<code>role=&quot;${escapeHtml(value)}&quot;</code>`).join("")}</div>` : "";
-  return `<div class="remediation-start"><span class="remediation-eyebrow">Start here</span><span class="remediation-step-label">Failed condition</span><p>${technicalText(failedCondition)}</p>${expectedRoles}</div><div class="remediation-grid"><div class="remediation-card"><h4>What to inspect</h4>${list(guidance.inspect)}</div><div class="remediation-card"><h4>What to change</h4>${list(guidance.change)}</div></div>`;
+const DEFAULT_VERIFY = [
+  "Test the affected element with a keyboard and the relevant assistive technology.",
+  "Run the scan again and confirm the finding is gone without introducing a new issue.",
+];
+
+const REPORT_CSS = `
+    body{max-width:920px;margin:0 auto;padding:48px 24px 96px}
+    .report-head h1{margin-top:4px;font-size:28px;font-weight:600;letter-spacing:-.4px;text-wrap:balance}
+    .report-head p{margin-top:6px}
+    .target{overflow-wrap:anywhere}
+    .detail .notice{margin-top:16px;font-size:13px;color:var(--muted)}
+    .incomplete{margin-top:16px;padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--raised)}
+    .incomplete li{overflow-wrap:anywhere}
+    .incomplete>summary{font-weight:600;cursor:pointer}
+    section{margin-top:40px}
+    .detail .section-title{margin:0 0 12px;font-size:18px;letter-spacing:0}
+    .filters{display:grid;gap:6px;margin:12px 0}
+    .detail .index{margin:0;padding:0;list-style:none;border-top:1px solid var(--line)}
+    .detail .index li{margin:0;border-bottom:1px solid var(--line)}
+    .index a{display:grid;grid-template-columns:8px minmax(0,1fr);gap:10px;padding:9px 4px;text-decoration:none}
+    .index a:hover{background:var(--tint)}
+    .finding{margin-top:24px;padding:24px;border:1px solid var(--line);border-radius:12px;scroll-margin-top:16px}
+    .detail .group-name{margin:8px 0 0;font-size:18px}
+    .review-notes{margin-top:6px;padding:8px 12px;border-left:3px solid var(--line-strong);background:var(--raised);white-space:pre-wrap}
+    .check{padding:16px 0;border-top:1px solid var(--line)}
+    .detail .check h3{margin:4px 0 6px}
+    .check ol{margin-top:8px}
+    .hidden{display:none}
+    @media(max-width:700px){body{padding:32px 16px 64px}.finding{padding:16px}}
+    @media print{.filters,[data-copy]{display:none}pre{max-height:none}}
+`;
+
+function link(href: string, text: string): string {
+  return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`;
+}
+
+function wcagLink(criterion: string): string {
+  return link(wcagUnderstandingUrl(criterion), wcagCriterionLabel(criterion));
+}
+
+function plural(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+
+function capitalize(value: string): string {
+  return value[0].toUpperCase() + value.slice(1);
+}
+
+function list(tag: "ul" | "ol", items: string[]): string {
+  return `<${tag}>${items.map((item) => `<li>${technicalText(item)}</li>`).join("")}</${tag}>`;
+}
+
+function more(title: string, body: string): string {
+  return `<details class="more"><summary>${escapeHtml(title)}</summary><div class="more-body">${body}</div></details>`;
+}
+
+function codeBlock(label: string, text: string): string {
+  return `<div class="code"><span class="label">${escapeHtml(label)}</span><pre tabindex="0"><code>${escapeHtml(text)}</code></pre></div>`;
+}
+
+function promptHtml(title: string, prompt: string, description: string): string {
+  return more(title, `<p class="muted">${description}</p><pre tabindex="0">${escapeHtml(prompt)}</pre><button class="btn" type="button" data-copy>Copy AI prompt</button>`);
+}
+
+function affectedPages(finding: Finding): SourceLocation[] {
+  const locations = (finding.occurrences ?? [{ location: finding.location }]).map((item) => item.location).filter((location) => location.url);
+  return [...new Map(locations.map((location) => [location.url, location])).values()];
+}
+
+function failedCondition(finding: Finding): string {
+  return finding.remediationGuidance?.inspect.find((item) => item.startsWith("Failed condition:"))?.replace(/^Failed condition:\s*/, "") ?? finding.impact;
+}
+
+function failureHtml(failed: string, label: string): string {
+  const roles = failed.match(/ARIA parents? role not present:\s*(.+)$/i)?.[1].split(",").map((item) => item.trim()).filter(Boolean) ?? [];
+  return `<div class="callout"><span class="label">${label}</span><p>${technicalText(failed)}</p>${roles.length ? `<p class="roles">Expected parent roles: ${roles.map((role) => `<code>role=${escapeHtml(role)}</code>`).join(" ")}</p>` : ""}</div>`;
+}
+
+function stateText(location: SourceLocation): string {
+  return `Revealed interaction state: ${interactionTypeLabel(location.interactionType)} · ${location.interactionState}${location.interactionTrigger ? `, trigger ${location.interactionTrigger}` : ""}. Reproduce it before verifying the fix.`;
+}
+
+// The one line of text metadata under a title, shared by the index and the issue sets.
+function findingMeta(finding: Finding, result: ScanResult): string {
+  const review = findingReviewFor(result, finding);
+  const pages = affectedPageCount(finding);
+  return [
+    capitalize(finding.severity),
+    finding.wcagLevel ? `Level ${finding.wcagLevel}` : "",
+    finding.issueCategory ?? findingIssueCategory(finding),
+    review.disposition === "unreviewed" ? "" : findingDispositionLabels[review.disposition],
+    pages > 1 ? `${pages} pages` : "",
+  ].filter(Boolean).join(" · ");
+}
+
+function contrastHtml(finding: Finding): string {
+  const contrast = finding.contrast;
+  if (!contrast) return "";
+  const swatch = (color: string): string => (/^#[0-9a-f]{3,8}$/i.test(color) ? `<span class="swatch" style="background:${color}"></span>` : "");
+  const fact = (name: string, value: string, isColor = false): string => `<div><dt>${name}</dt><dd>${isColor ? swatch(value) : ""}${escapeHtml(value)}</dd></div>`;
+  return `<h3>Color contrast evidence</h3><dl class="facts">${fact("Foreground", contrast.foreground, true)}${fact("Background", contrast.background, true)}${fact("Measured ratio", contrast.ratio ? `${contrast.ratio}:1` : "Not reported")}${fact("Required ratio", contrast.requiredRatio ? `${contrast.requiredRatio}:1` : "Verify manually")}${fact("Font", [contrast.fontSize, contrast.fontWeight].filter(Boolean).join(" · ") || "Not reported")}</dl>`;
+}
+
+function shotHtml(finding: Finding): string {
+  return finding.screenshot?.dataUrl.startsWith("data:image/")
+    ? `<h3>Visual evidence</h3><button class="shot" type="button" aria-label="Open larger screenshot for ${escapeHtml(finding.location.selector || finding.title)}"><img src="${escapeHtml(finding.screenshot.dataUrl)}" alt="${escapeHtml(finding.screenshot.description)}" loading="lazy"></button>`
+    : "";
 }
 
 function findingCard(finding: Finding, result: ScanResult): string {
-  const findingReview = findingReviewFor(result, finding);
-  const wcag = finding.wcag.length ? finding.wcag.join(", ") : "Not mapped";
-  const wcagLinks = finding.wcag.length
-    ? `<div class="wcag-links">${finding.wcag.map((criterion) => `<a href="${wcagUnderstandingUrl(criterion)}" target="_blank" rel="noopener noreferrer">${escapeHtml(wcagCriterionLabel(criterion))}</a>`).join("")}</div>`
-    : `<strong>Not mapped</strong>`;
-  const source = finding.location.url
-    ? `<div class="location-card"><span class="meta-label">Source page</span><a class="location-link" href="${escapeHtml(finding.location.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(finding.location.pageTitle || "Open the affected page")}</a><a class="source-url" href="${escapeHtml(finding.location.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(finding.location.url)}</a></div>`
-    : `<div class="location-card"><span class="meta-label">Source file</span><strong>${escapeHtml(locationText(finding))}</strong></div>`;
-  const selector = `<div class="location-card"><span class="meta-label">Affected element</span><code class="selector">${escapeHtml(finding.location.selector || "No CSS selector was reported")}</code><p class="meta-help">Use this selector to locate the element in browser developer tools.</p></div>`;
-  const interactionState = finding.location.interactionState
-    ? `<div class="location-card"><span class="meta-label">Revealed interaction state</span><strong>${interactionTypeLabel(finding.location.interactionType)} · ${escapeHtml(finding.location.interactionState)}</strong>${finding.location.interactionTrigger ? `<code class="selector">${escapeHtml(finding.location.interactionTrigger)}</code>` : ""}<p class="meta-help">This issue appeared only after the scanner ${finding.location.interactionType === "tab" ? "selected this tab" : finding.location.interactionType === "carousel" ? "advanced this carousel" : `opened this ${finding.location.interactionType ?? "interactive control"}`}. Reproduce that state before verifying the fix.</p></div>`
+  const review = findingReviewFor(result, finding);
+  const pages = affectedPages(finding);
+  const selector = `<code>${escapeHtml(finding.location.selector || finding.ruleId)}</code>`;
+  const where = pages.length
+    ? `${selector} on ${link(pages[0].url!, pages[0].pageTitle || pages[0].url!)}${pages.length > 1 ? ` and ${plural(pages.length - 1, "more page")}` : ""}`
+    : `${selector} in ${escapeHtml(locationText(finding))}`;
+  const changes = finding.remediationGuidance?.change.length ? finding.remediationGuidance.change : [finding.remediation];
+  const suggestion = finding.codeSuggestion;
+  const suggested = suggestion
+    ? `<p class="note">${technicalText(`Suggested change: ${suggestion.title}. ${suggestion.reviewRequired ? "Review required. " : ""}${changes.includes(suggestion.rationale) ? "" : suggestion.rationale}`)}</p>${suggestion.alternatives?.length ? `<p class="note">Other valid approach</p>${list("ul", suggestion.alternatives)}` : ""}`
     : "";
-  const affectedPages = finding.scope === "common" && finding.occurrences
-    ? `<section class="report-section common-pages"><h3>Affected pages</h3><p>This recurring ${escapeHtml((finding.componentCategory ?? findingComponentCategory(finding)).toLowerCase())} issue has the same rule, selector, and detected markup on ${affectedPageCount(finding)} tested pages (${findingOccurrenceCount(finding)} total occurrences). Fix the shared component once, then retest every listed page.</p><ul>${[...new Map(finding.occurrences.filter((item) => item.location.url).map((item) => [item.location.url!, item.location])).values()].map((location) => `<li><a href="${escapeHtml(location.url!)}" target="_blank" rel="noopener noreferrer">${escapeHtml(location.pageTitle || location.url!)}</a><span>${escapeHtml(location.url!)}</span></li>`).join("")}</ul></section>`
-    : "";
-  const screenshot = finding.screenshot?.dataUrl.startsWith("data:image/")
-    ? `<section class="report-section"><h3>Visual evidence</h3><p>The affected element is outlined in charcoal. Select the thumbnail to inspect the full viewport capture.</p><figure><button class="report-shot" type="button" aria-label="Open larger screenshot for ${escapeHtml(finding.title)}"><img src="${finding.screenshot.dataUrl}" alt="${escapeHtml(finding.screenshot.description)}" loading="lazy"><span>Open large screenshot</span></button><figcaption>${escapeHtml(finding.screenshot.description)}</figcaption></figure></section>`
-    : "";
-  const contrast = finding.contrast
-    ? `<section class="report-section contrast-section"><h3>Color contrast evidence</h3><div class="contrast-grid"><div><span class="meta-label">Foreground</span><code>${escapeHtml(finding.contrast.foreground)}</code></div><div><span class="meta-label">Background</span><code>${escapeHtml(finding.contrast.background)}</code></div><div><span class="meta-label">Measured ratio</span><strong>${finding.contrast.ratio ? `${finding.contrast.ratio}:1` : "Not reported"}</strong></div><div><span class="meta-label">Required ratio</span><strong>${finding.contrast.requiredRatio ? `${finding.contrast.requiredRatio}:1` : "Verify manually"}</strong></div><div><span class="meta-label">Font</span><span>${escapeHtml([finding.contrast.fontSize, finding.contrast.fontWeight].filter(Boolean).join(" · ") || "Not reported")}</span></div></div><p class="meta-help">Verify the final colors in default, hover, focus, active, disabled, error, and visited states.</p></section>`
-    : "";
-  const renderedContext = finding.renderedHtmlContext ?? { html: finding.evidence, scope: "element" as const, truncated: false };
-  const contextDescription = renderedContext.scope === "parent"
-    ? "Complete rendered parent HTML captured around the affected element. This is browser output and may have been generated by a framework, CMS, template, or component."
-    : "Rendered HTML for the affected element. A complete parent block was not safely available, so review the selector in browser developer tools for additional surrounding structure.";
-  const contextTruncation = renderedContext.truncated ? `<p class="meta-help">The captured element exceeded the report limit and was truncated. Use the affected selector to inspect the complete browser DOM.</p>` : "";
-  const renderedHtml = `<section class="report-section rendered-context"><h3>Rendered HTML context</h3><p>${contextDescription}</p><span class="code-label">Original browser HTML · ${renderedContext.scope === "parent" ? "affected element and parent" : "affected element"}</span><pre tabindex="0">${escapeHtml(renderedContext.html)}</pre>${contextTruncation}</section>`;
-  const suggestedChange = finding.codeSuggestion
-    ? `<section class="report-section"><h3>Suggested change</h3><h4>${escapeHtml(finding.codeSuggestion.title)}</h4><p class="review-note">${finding.codeSuggestion.reviewRequired ? "Review required: " : ""}${escapeHtml(finding.codeSuggestion.rationale)}</p>${finding.codeSuggestion.alternatives?.length ? `<p><strong>Other valid approach</strong></p><ul>${finding.codeSuggestion.alternatives.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}<p class="meta-help">Apply this direction in the maintained source that produces the rendered HTML, then inspect the resulting DOM and retest. It is not a generated replacement block.</p></section>`
-    : `<section class="report-section"><h3>Suggested change</h3><p class="review-note">No context-safe automatic edit is available for this rule. Use the exact failed condition and change checklist above, locate the maintained source, and verify the resulting rendered HTML.</p></section>`;
-  const rule = `<code>${escapeHtml(finding.ruleId)}</code>${finding.helpUrl ? `<a class="scanner-link" href="${escapeHtml(finding.helpUrl)}" target="_blank" rel="noopener noreferrer">View axe scanner rule details (Deque)</a>` : ""}`;
+  const context = finding.renderedHtmlContext ?? { html: finding.evidence, scope: "element" as const, truncated: false };
+  const contextLabel = `Original browser HTML · ${context.scope === "parent" ? "affected element and parent" : "affected element"}${context.truncated ? " · truncated, inspect the selector for the full DOM" : ""}`;
+  const header = [
+    finding.wcagLevel ? `WCAG Level ${finding.wcagLevel}` : "",
+    finding.issueCategory ?? findingIssueCategory(finding),
+    finding.scope === "common" ? `Recurring ${(finding.componentCategory ?? findingComponentCategory(finding)).toLowerCase()}` : "",
+    finding.kind === "automatic" ? "Automated finding" : "Manual review",
+  ].filter(Boolean).join(" · ");
+  const inspect = (finding.remediationGuidance?.inspect ?? []).filter((item) => !item.startsWith("Failed condition:"));
   const references = [
-    ...finding.wcag.map(
-      (criterion) => `<li><a href="${wcagUnderstandingUrl(criterion)}" target="_blank" rel="noopener noreferrer">${escapeHtml(wcagCriterionLabel(criterion))} — W3C Understanding guidance</a></li>`,
-    ),
-    finding.location.url
-      ? `<li><a href="${escapeHtml(finding.location.url)}" target="_blank" rel="noopener noreferrer">Open the affected source page</a></li>`
-      : "",
-    finding.helpUrl
-      ? `<li><a href="${escapeHtml(finding.helpUrl)}" target="_blank" rel="noopener noreferrer">View axe scanner rule details on Deque</a></li>`
-      : "",
+    ...finding.wcag.map((criterion) => `<li>${wcagLink(criterion)} — W3C Understanding guidance</li>`),
+    finding.helpUrl ? `<li>${link(finding.helpUrl, "axe scanner rule details (Deque)")}</li>` : "",
   ].join("");
-  const remediationPrompt = finding.remediationPrompt ?? buildRemediationPrompt({ ...finding, issueCategory: finding.issueCategory ?? findingIssueCategory(finding) });
-  return `<article class="finding" id="finding-${finding.fingerprint}" data-severity="${finding.severity}" data-level="${escapeHtml(finding.wcagLevel ?? "")}" data-disposition="${findingReview.disposition}">
-    <header class="finding-header"><div class="finding-kicker"><span class="badge ${finding.severity}">${finding.severity}</span>${findingLevelBadge(finding)}${issueCategoryBadge(finding)}${recurringFindingBadges(finding)}<span class="finding-review-status ${findingReview.disposition}">${findingDispositionLabels[findingReview.disposition]}</span><span>${finding.kind === "automatic" ? "Automated finding" : "Manual review"} · ${escapeHtml(finding.confidence)} confidence</span></div><h2>${technicalText(finding.title)}</h2></header>
-    <section class="report-section finding-review-record"><h3>Automated finding review</h3><p><span class="finding-review-status ${findingReview.disposition}">${findingDispositionLabels[findingReview.disposition]}</span></p>${findingReview.notes ? `<div class="finding-review-notes"><span class="meta-label">Reviewer notes</span><p>${escapeHtml(findingReview.notes)}</p></div>` : `<p class="meta-help">No reviewer notes were recorded for this finding.</p>`}<p class="meta-help">This human disposition does not change the scan-derived New, Existing, or Resolved status.</p></section>
-    <section class="report-section"><h3>Finding summary</h3><div class="meta-grid"><div class="meta-card"><span class="meta-label">Priority</span><strong>${escapeHtml(finding.severity)}</strong><p class="meta-help">Review this finding according to its severity and user impact.</p></div><div class="meta-card standards-card"><span class="meta-label">WCAG 2.2 requirements — W3C</span>${wcagLinks}<p class="meta-help">Each section opens its exact W3C Understanding guidance page. Reported mapping: ${escapeHtml(wcag)}.</p></div><div class="meta-card"><span class="meta-label">Automated scanner check</span>${rule}<p class="meta-help">The rule ID comes from axe-core; Deque documentation describes how the scanner detected it.</p></div><div class="meta-card"><span class="meta-label">Detection confidence</span><strong>${escapeHtml(finding.confidence)}</strong><p class="meta-help">Human verification is still required.</p></div></div></section>
-    <section class="report-section"><h3>Where it was found</h3><div class="location-grid">${source}${selector}${interactionState}</div></section>
-    ${affectedPages}
-    ${contrast}
-    ${screenshot}
-    <section class="report-section"><h3>Why this was flagged</h3><h4>Rule purpose</h4><p>${escapeHtml(finding.explanation)}</p><h4>Failed check</h4><p>${escapeHtml(finding.impact)}</p></section>
-    <section class="report-section"><h3>Recommended fix</h3>${remediationGuidanceHtml(finding)}${finding.safeFix ? `<p class="safe-fix">Safe automated fix available: ${escapeHtml(finding.safeFix.description)}</p>` : ""}</section>
-    ${renderedHtml}
-    ${suggestedChange}
-    <section class="report-section agent-prompt-section"><h3>AI remediation prompt</h3><p>Copy this prompt into a coding agent. It asks the agent to identify the site technology before changing the maintained source.</p><pre tabindex="0">${escapeHtml(remediationPrompt)}</pre></section>
-    <section class="report-section"><h3>How to verify the fix</h3><ol>${(finding.remediationGuidance?.verify ?? ["Review the surrounding component so the change preserves the intended behavior.", "Test the affected element with a keyboard and the relevant assistive technology.", "Run the accessibility scan again and confirm the finding is gone without introducing a new issue."]).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ol>${references ? `<h4>References</h4><ul>${references}</ul>` : ""}</section>
-  </article>`;
-}
+  const prompt = finding.remediationPrompt ?? buildRemediationPrompt({ ...finding, issueCategory: finding.issueCategory ?? findingIssueCategory(finding) });
+  const extra = [
+    inspect.length ? more("What to inspect", list("ul", inspect)) : "",
+    more("Why this was flagged", `<p>${technicalText(finding.explanation)}</p><p class="muted">Detected by rule <code>${escapeHtml(finding.ruleId)}</code> · ${capitalize(finding.confidence)} confidence · human verification still required</p>`),
+    pages.length > 1 ? more(`Affected pages (${pages.length})`, `<p class="muted">The same rule, selector, and detected markup appeared on ${pages.length} tested pages (${findingOccurrenceCount(finding)} total occurrences). Retest each one after the fix.</p><ul>${pages.map((page) => `<li>${link(page.url!, page.pageTitle || page.url!)}${page.pageTitle ? ` <span class="muted">${escapeHtml(page.url!)}</span>` : ""}</li>`).join("")}</ul>`) : "",
+    more("How to verify the fix", list("ol", finding.remediationGuidance?.verify.length ? finding.remediationGuidance.verify : DEFAULT_VERIFY)),
+    references ? more("Standards and references", `<ul>${references}</ul>`) : "",
+    promptHtml("AI remediation prompt", prompt, "Paste this into a coding agent. It asks the agent to find the source that produces the affected markup before editing."),
+  ].join("");
 
-function findingReviewSummaryHtml(result: ScanResult): string {
-  const counts = { unreviewed: 0, "action-required": 0, "accepted-risk": 0, "false-positive": 0 };
-  result.findings.forEach((finding) => counts[findingReviewFor(result, finding).disposition]++);
-  return `<section class="finding-review-summary" aria-labelledby="finding-review-summary-heading"><div><span class="eyebrow">Human triage</span><h2 id="finding-review-summary-heading">Automated finding review</h2><p>Review dispositions document decisions without changing scan-derived resolution status.</p></div><div class="finding-review-totals"><span class="finding-review-status unreviewed">${counts.unreviewed} Unreviewed</span><span class="finding-review-status action-required">${counts["action-required"]} Action required</span><span class="finding-review-status accepted-risk">${counts["accepted-risk"]} Accepted risk</span><span class="finding-review-status false-positive">${counts["false-positive"]} False positive</span></div></section>`;
+  return `<article class="finding ${finding.severity}" id="finding-${finding.fingerprint}" data-severity="${finding.severity}" data-level="${escapeHtml(finding.wcagLevel ?? "")}" data-disposition="${review.disposition}">
+    <p class="meta"><span class="pill">${finding.severity}</span>${escapeHtml(header)}</p>
+    <h2>${technicalText(finding.title)}</h2>
+    <p class="where">Review disposition: <strong>${findingDispositionLabels[review.disposition]}</strong></p>${review.notes ? `<p class="review-notes">${escapeHtml(review.notes)}</p>` : ""}
+    <p class="where">${where}</p>${finding.location.interactionState ? `<p class="note">${escapeHtml(stateText(finding.location))}</p>` : ""}
+    ${failureHtml(failedCondition(finding), "Failed condition")}
+    <h3>What to change</h3>${list("ul", changes)}${finding.safeFix ? `<p class="note">Safe automated fix available: ${escapeHtml(finding.safeFix.description)}</p>` : ""}${suggested}
+    ${contrastHtml(finding)}
+    <h3>Rendered HTML context</h3>${codeBlock(contextLabel, context.html)}<p class="note">This is browser output and may come from a framework, CMS, template, or component. Apply the change in the maintained source. It is not a generated replacement block.</p>
+    ${shotHtml(finding)}
+    <div class="more-list">${extra}</div>
+  </article>`;
 }
 
 function manualChecklistHtml(result: ScanResult): string {
@@ -224,84 +289,109 @@ function manualChecklistHtml(result: ScanResult): string {
   const labels = { "not-tested": "Not tested", pass: "Pass", "needs-attention": "Needs attention", "not-applicable": "Not applicable" } as const;
   const counts = { "not-tested": 0, pass: 0, "needs-attention": 0, "not-applicable": 0 };
   checks.forEach((check) => counts[reviews[check.id]?.status ?? "not-tested"]++);
-  const reviewerNotes = result.review?.notes
-    ? `<div class="reviewer-notes"><span class="meta-label">Run-level reviewer notes</span><p>${escapeHtml(result.review.notes)}</p></div>`
-    : "";
-  return `<section class="manual-review" aria-labelledby="manual-review-heading"><div class="manual-heading"><div><span class="eyebrow">Required human review</span><h2 id="manual-review-heading">Manual accessibility review record</h2><p>Automated tools cannot determine these requirements reliably. Each task records a human outcome and supporting notes.</p></div><strong id="manual-progress">${counts.pass} pass · ${counts["needs-attention"]} need attention · ${counts["not-tested"]} not tested</strong></div><div class="manual-status-summary" aria-label="Manual review totals"><span class="manual-status pass">${counts.pass} Pass</span><span class="manual-status needs-attention">${counts["needs-attention"]} Needs attention</span><span class="manual-status not-tested">${counts["not-tested"]} Not tested</span><span class="manual-status not-applicable">${counts["not-applicable"]} Not applicable</span></div>${reviewerNotes}<ol class="manual-list">${checks.map((check) => { const review = reviews[check.id] ?? { status: "not-tested" as const, notes: "" }; return `<li class="manual-check"><div class="manual-check-heading"><span class="manual-status ${review.status}">${labels[review.status]}</span><strong>${escapeHtml(check.title)}</strong></div><p><span class="category">${escapeHtml(check.category)}</span> · WCAG ${escapeHtml(check.wcagLevel)}</p><p>${escapeHtml(check.description)}</p>${review.notes ? `<div class="manual-evidence"><span class="meta-label">Reviewer evidence and notes</span><p>${escapeHtml(review.notes)}</p></div>` : ""}<ol>${check.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol><div class="wcag-links">${check.wcag.map((criterion) => `<a href="${wcagUnderstandingUrl(criterion)}" target="_blank" rel="noopener noreferrer">${escapeHtml(wcagCriterionLabel(criterion))}</a>`).join("")}</div></li>`; }).join("")}</ol></section>`;
-}
-
-function componentGroupsHtml(result: ScanResult): string {
-  const groups = result.findingGroups?.length ? result.findingGroups : buildFindingGroups(result.findings);
-  if (!groups.length) return "";
-  const findingByFingerprint = new Map(result.findings.map((finding) => [finding.fingerprint, finding]));
-  return `<section class="component-groups" aria-labelledby="component-groups-heading"><div class="component-groups-heading"><div><span class="eyebrow">Related remediation work</span><h2 id="component-groups-heading">Components and issue patterns</h2><p>Each group combines findings that share an owning component or a concrete remediation theme.</p></div><strong>${groups.length} group${groups.length === 1 ? "" : "s"}</strong></div>${groups.map((group) => {
-    const members = group.findingFingerprints.map((fingerprint) => findingByFingerprint.get(fingerprint)).filter((finding): finding is Finding => Boolean(finding));
-    const prompt = group.remediationPrompt ?? buildGroupRemediationPrompt(group, members);
-    const issueClusters = group.issueClusters?.length ? group.issueClusters : buildFindingIssueClusters(members);
-    const issueSets = issueClusters.map((cluster) => {
-      const clusteredMembers = cluster.findingFingerprints.map((fingerprint) => findingByFingerprint.get(fingerprint)).filter((finding): finding is Finding => Boolean(finding));
-      const target = cluster.remediationTarget ?? group.remediationTarget;
-      const targetHtml = target
-        ? `<div class="issue-owner-report"><h5>Likely shared owner</h5><code class="selector">${escapeHtml(target.selector)}</code><pre tabindex="0">${escapeHtml(target.html)}</pre><p>${technicalText(cluster.parentResolution ?? target.reason)}</p><p><strong>Current role:</strong> ${escapeHtml(target.currentRole ?? "No explicit role")} · <strong>Expected parent roles:</strong> ${target.suggestedRoles.map((role) => `<code>${escapeHtml(role)}</code>`).join(", ")}</p></div>`
-        : group.selector
-          ? `<div class="issue-owner-report"><h5>Component region to inspect</h5><code class="selector">${escapeHtml(group.selector)}</code><p>${technicalText(cluster.parentResolution ?? "Locate the inner container that directly owns the affected elements before choosing a parent-level change.")}</p></div>`
-          : "";
-      const affected = clusteredMembers.map((finding) => `<li><a href="#finding-${finding.fingerprint}">${technicalText(finding.evidence.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || finding.title)}</a><code>${escapeHtml(finding.location.selector || finding.ruleId)}</code>${finding.location.url ? `<a class="source-url" href="${escapeHtml(finding.location.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(finding.location.pageTitle || finding.location.url)}</a>` : ""}</li>`).join("");
-      return `<section class="issue-cluster-report"><div class="component-group-kicker"><span class="group-count-badge">${clusteredMembers.length} ELEMENT${clusteredMembers.length === 1 ? "" : "S"}</span><span class="page-count-badge">${cluster.pages.length} PAGE${cluster.pages.length === 1 ? "" : "S"}</span></div><h4>${escapeHtml(cluster.name)}</h4><p><strong>Automated check:</strong> <code>${escapeHtml(cluster.ruleId)}</code></p><div class="issue-cluster-summary"><p><strong>Shared failure</strong>${technicalText(cluster.failedCondition)}</p><p><strong>Recommended action</strong>${technicalText(cluster.recommendedAction)}</p></div>${targetHtml}<details><summary>Affected child elements · ${clusteredMembers.length}</summary><ol>${affected}</ol></details></section>`;
-    }).join("");
-    const corrections = group.sharedCorrections.length
-      ? `<div class="shared-corrections"><h4>Corrections shared by multiple findings</h4>${group.sharedCorrections.map((correction) => `<article><span class="applies-badge">APPLIES TO ${correction.appliesTo}</span><p>${technicalText(correction.text)}</p></article>`).join("")}</div>`
-      : "";
-    return `<article class="component-group-report"><div class="component-group-kicker"><span class="component-badge">${escapeHtml(group.kind === "pattern" ? "Issue pattern" : group.category)}</span><span class="group-count-badge">${issueClusters.length} ISSUE${issueClusters.length === 1 ? "" : "S"}</span><span class="applies-badge">${members.length} ELEMENT${members.length === 1 ? "" : "S"}</span><span class="page-count-badge">${group.pages.length} PAGE${group.pages.length === 1 ? "" : "S"}</span></div><h3>${escapeHtml(group.name)}</h3>${group.selector ? `<code class="selector">${escapeHtml(group.selector)}</code>` : ""}${corrections}<h4>Issue sets and affected elements</h4>${issueSets}<section class="agent-prompt-section"><h4>Combined AI remediation prompt</h4><p>Use one coordinated task for every affected element in this group.</p><pre tabindex="0">${escapeHtml(prompt)}</pre></section></article>`;
+  const runNotes = result.review?.notes ? `<p class="where">Run-level reviewer notes</p><p class="review-notes">${escapeHtml(result.review.notes)}</p>` : "";
+  return `<section aria-labelledby="manual-review-heading"><h2 class="section-title" id="manual-review-heading">Manual accessibility review record</h2><p>Required human review: automated tools cannot determine these requirements reliably. Each task records a human outcome and supporting notes. <strong id="manual-progress">${counts.pass} pass · ${counts["needs-attention"]} need attention · ${counts["not-tested"]} not tested · ${counts["not-applicable"]} not applicable</strong></p>${runNotes}${checks.map((check) => {
+    const review = reviews[check.id] ?? { status: "not-tested" as const, notes: "" };
+    return `<div class="check"><p class="meta"><strong>${labels[review.status]}</strong> · ${escapeHtml(check.category)} · WCAG Level ${escapeHtml(check.wcagLevel)}</p><h3>${escapeHtml(check.title)}</h3><p>${escapeHtml(check.description)}</p>${review.notes ? `<p class="review-notes">${escapeHtml(review.notes)}</p>` : ""}${list("ol", check.steps)}<p class="note">${check.wcag.map(wcagLink).join(" · ")}</p></div>`;
   }).join("")}</section>`;
 }
 
+function componentGroupsHtml(result: ScanResult, groups: FindingGroup[]): string {
+  if (!groups.length) return "";
+  const byFingerprint = new Map(result.findings.map((finding) => [finding.fingerprint, finding]));
+  const membersOf = (fingerprints: string[]): Finding[] => fingerprints.map((fingerprint) => byFingerprint.get(fingerprint)).filter((finding): finding is Finding => Boolean(finding));
+  const worst = (members: Finding[]): Severity => members.reduce<Severity>((current, finding) => (severityRank[finding.severity] > severityRank[current] ? finding.severity : current), "minor");
+  return `<section aria-labelledby="components-heading"><h2 class="section-title" id="components-heading">Components and issue patterns</h2><p>Each group combines findings that share an owning component or a remediation theme. Fix the shared cause once, then verify every affected element.</p>${groups.map((group) => {
+    const members = membersOf(group.findingFingerprints);
+    const clusters = group.issueClusters?.length ? group.issueClusters : buildFindingIssueClusters(members);
+    const corrections = group.sharedCorrections.filter((correction) => correction.appliesTo > 1);
+    const issueSets = clusters.map((cluster) => {
+      const elements = membersOf(cluster.findingFingerprints);
+      if (!elements.length) return "";
+      const target = cluster.remediationTarget ?? (cluster.ruleId === "aria-required-parent" ? group.remediationTarget : undefined);
+      const owner = target
+        ? `<span class="label">Likely shared owner</span><p class="where"><code>${escapeHtml(target.selector)}</code> · Current role: ${escapeHtml(target.currentRole ?? "No explicit role")} · Expected parent roles: ${target.suggestedRoles.map((role) => `<code>${escapeHtml(role)}</code>`).join(" ")}</p><p class="note">${escapeHtml(target.reason)}</p>${codeBlock("Owner markup", target.html)}`
+        : "";
+      return `<details class="child ${worst(elements)}"><summary><span class="dot"></span><span class="row-main"><span class="row-title">${technicalText(cluster.name)}</span><span class="row-meta">${escapeHtml([findingMeta(elements[0], result), plural(elements.length, "element"), plural(cluster.pages.length, "page")].join(" · "))}</span></span></summary><div class="child-body ${worst(elements)}">${failureHtml(cluster.failedCondition, elements.length > 1 ? "Shared failure" : "Failed condition")}<span class="label">What to change</span>${cluster.parentResolution ? `<p>${technicalText(cluster.parentResolution)}</p>` : ""}<p>${technicalText(cluster.recommendedAction)}</p>${owner}<span class="label">Affected elements (${elements.length})</span><ul>${elements.map((finding) => `<li><a href="#finding-${finding.fingerprint}"><code>${escapeHtml(finding.location.selector || finding.ruleId)}</code></a>${finding.location.url ? ` on ${link(finding.location.url, finding.location.pageTitle || finding.location.url)}` : ""}</li>`).join("")}</ul></div></details>`;
+    }).join("");
+    const prompt = group.remediationPrompt ?? buildGroupRemediationPrompt(group, members);
+    return `<article class="finding ${worst(members)}"><p class="meta"><span class="pill">${worst(members)}</span>${escapeHtml([group.kind === "pattern" ? "Issue pattern" : "Component", group.category, plural(clusters.length, "issue"), plural(members.length, "element"), plural(group.pages.length, "page")].join(" · "))}</p><h3 class="group-name">${escapeHtml(group.name)}</h3>${group.selector && group.kind !== "pattern" ? `<p class="where">Component selector <code>${escapeHtml(group.selector)}</code></p>` : ""}${corrections.length ? `<h4>Corrections shared by multiple findings</h4><ul>${corrections.map((correction) => `<li>${technicalText(correction.text)} <span class="muted">Applies to ${plural(correction.appliesTo, "finding")}.</span></li>`).join("")}</ul>` : ""}<h4>Issue sets and affected elements</h4>${issueSets}<div class="more-list">${promptHtml("Combined AI remediation prompt", prompt, "This single prompt includes every child finding in the group so a coding agent can make one coordinated change.")}</div></article>`;
+  }).join("")}</section>`;
+}
+
+// Chips carry their own counts. Values with no findings are left out, and a row with fewer than two values is not shown.
+function filtersHtml(result: ScanResult): string {
+  const findings = result.findings;
+  if (!findings.length) return "";
+  const chip = (kind: string, value: string, label: string, count: number): string => `<button class="chip" type="button" data-${kind}-filter="${value}" aria-pressed="${value === "all"}">${label} <span class="count">${count}</span></button>`;
+  const row = (kind: string, label: string, allLabel: string, options: Array<[string, string]>, key: (finding: Finding) => string | undefined, required = false): string => {
+    const present = options.map(([value, text]) => [value, text, findings.filter((finding) => key(finding) === value).length] as const).filter(([, , count]) => count);
+    if (!required && present.length < 2) return "";
+    return `<div class="chips" role="group" aria-label="${label}">${chip(kind, "all", allLabel, findings.length)}${present.map(([value, text, count]) => chip(kind, value, text, count)).join("")}</div>`;
+  };
+  return `<div class="filters">${row("severity", "Impact severity", "All", [["critical", "Critical"], ["serious", "Serious"], ["moderate", "Moderate"], ["minor", "Minor"]], (finding) => finding.severity, true)}${row("level", "WCAG level", "All levels", [["A", "A"], ["AA", "AA"], ["AAA", "AAA"]], (finding) => finding.wcagLevel)}${row("disposition", "Review disposition", "All reviews", Object.entries(findingDispositionLabels), (finding) => findingReviewFor(result, finding).disposition)}</div>`;
+}
+
 export function htmlReport(result: ScanResult): string {
-  const counts = result.findings.reduce<Record<Severity, number>>(
-    (summary, finding) => ({ ...summary, [finding.severity]: summary[finding.severity] + 1 }),
-    { critical: 0, serious: 0, moderate: 0, minor: 0 },
-  );
-  const incomplete = result.metadata.incomplete?.length
-    ? `<section class="notice"><strong>Incomplete pages</strong><ul>${result.metadata.incomplete.map((item) => `<li><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.url)}</a> — ${escapeHtml(incompleteDetail(item))}</li>`).join("")}</ul></section>`
+  const metadata = result.metadata;
+  const occurrences = metadata.findingOccurrences ?? result.findings.length;
+  const skippedStates = metadata.interactionStateFailures?.length ?? 0;
+  const count = (value: number, one: string, many: string): string => `<strong>${value}</strong> ${value === 1 ? one : many}`;
+  const totals = [
+    metadata.scanner === "repository" ? count(metadata.pagesOrFilesScanned, "file scanned", "files scanned") : count(metadata.pagesOrFilesScanned, "page tested", "pages tested"),
+    count(result.findings.length, "unique finding", "unique findings"),
+    count(occurrences, "occurrence", "occurrences"),
+    metadata.interactionStatesRequested || metadata.interactionStatesScanned ? `${count(metadata.interactionStatesScanned ?? 0, "interactive state opened", "interactive states opened")}${metadata.interactionStateCounts ? ` (${escapeHtml(interactionSummary(result).replace(/^.*?: /, ""))})` : ""}` : "",
+    skippedStates ? count(skippedStates, "state skipped", "states skipped") : "",
+    wcagTargetText(result) ? escapeHtml(wcagTargetText(result)!) : "",
+    `Generated ${escapeHtml(metadata.completedAt)}`,
+  ].filter(Boolean).join(" · ");
+  const reviewCounts = result.findings.reduce<Record<string, number>>((summary, finding) => {
+    const disposition = findingReviewFor(result, finding).disposition;
+    return { ...summary, [disposition]: (summary[disposition] ?? 0) + 1 };
+  }, {});
+  const reviewSummary = Object.entries(findingDispositionLabels).filter(([value]) => reviewCounts[value]).map(([value, label]) => `${reviewCounts[value]} ${label.toLowerCase()}`).join(" · ");
+  const incomplete = metadata.incomplete?.length
+    ? `<div class="incomplete"><strong>Incomplete pages</strong><ul>${metadata.incomplete.map((item) => `<li>${link(item.url, item.url)} — ${escapeHtml(incompleteDetail(item))}</li>`).join("")}</ul></div>`
     : "";
-  const skippedAssets = result.metadata.skippedAssets?.length
-    ? `<details class="notice"><summary><strong>Skipped non-HTML assets · ${result.metadata.skippedAssets.length}</strong></summary><p>These files were intentionally excluded from the HTML crawl. PDFs and other downloads need a format-specific accessibility review.</p><ul>${result.metadata.skippedAssets.map((item) => `<li><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.url)}</a> — ${escapeHtml(item.reason)}</li>`).join("")}</ul></details>`
+  const interactionFailures = metadata.interactionStateFailures?.length
+    ? `<div class="incomplete"><strong>Interactive states skipped</strong><p>These controls matched a conservative recipe but could not be safely opened and restored. Review them manually.</p><ul>${metadata.interactionStateFailures.map((item) => `<li>${link(item.url, item.url)} — ${interactionTypeLabel(item.type)} “${escapeHtml(item.name)}” <code>${escapeHtml(item.trigger)}</code>: ${escapeHtml(item.reason)}</li>`).join("")}</ul></div>`
     : "";
-  const interactionFailures = result.metadata.interactionStateFailures?.length
-    ? `<section class="notice"><strong>Interactive states skipped</strong><p>These controls matched a conservative recipe but could not be safely opened and restored. Review them manually.</p><ul>${result.metadata.interactionStateFailures.map((item) => `<li><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.url)}</a> — ${interactionTypeLabel(item.type)} “${escapeHtml(item.name)}” <code>${escapeHtml(item.trigger)}</code>: ${escapeHtml(item.reason)}</li>`).join("")}</ul></section>`
+  const skippedAssets = metadata.skippedAssets?.length
+    ? `<details class="incomplete"><summary>Skipped non-HTML assets · ${metadata.skippedAssets.length}</summary><p>These files were intentionally excluded from the HTML crawl. PDFs and other downloads need a format-specific accessibility review.</p><ul>${metadata.skippedAssets.map((item) => `<li>${link(item.url, item.url)} — ${escapeHtml(item.reason)}</li>`).join("")}</ul></details>`
     : "";
+  const groups = result.findingGroups?.length ? result.findingGroups : buildFindingGroups(result.findings);
   const findingIndex = result.findings.length
-    ? `<nav class="finding-index" aria-label="Finding list"><h2>Finding list</h2><ol>${result.findings.map((finding) => { const review = findingReviewFor(result, finding); return `<li data-severity="${finding.severity}" data-level="${escapeHtml(finding.wcagLevel ?? "")}" data-disposition="${review.disposition}"><a href="#finding-${finding.fingerprint}"><span class="badge ${finding.severity}">${escapeHtml(finding.severity)}</span>${findingLevelBadge(finding)}${issueCategoryBadge(finding)}${recurringFindingBadges(finding)}<span class="finding-review-status ${review.disposition}">${findingDispositionLabels[review.disposition]}</span><span>${technicalText(finding.title)}</span></a></li>`; }).join("")}</ol></nav>`
-    : "";
-  const manualChecklist = manualChecklistHtml(result);
-  const findingReviewSummary = findingReviewSummaryHtml(result);
-  const componentGroups = componentGroupsHtml(result);
+    ? `<ol class="index">${result.findings.map((finding) => `<li class="${finding.severity}" data-severity="${finding.severity}" data-level="${escapeHtml(finding.wcagLevel ?? "")}" data-disposition="${findingReviewFor(result, finding).disposition}"><a href="#finding-${finding.fingerprint}"><span class="dot"></span><span class="row-main"><span class="row-title">${technicalText(finding.title)}</span><span class="row-meta">${escapeHtml(findingMeta(finding, result))}</span></span></a></li>`).join("")}</ol>`
+    : "<p>No automated findings were detected. Manual testing is still required.</p>";
   return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light">
 <title>Accessibility report</title>
-<style>
-.remediation-start{border:1px solid var(--accent-blue);border-left:5px solid var(--accent-plum);border-radius:10px;background:linear-gradient(110deg,var(--accent-plum-soft),var(--accent-blue-soft));padding:16px 18px}.remediation-eyebrow{display:block;color:var(--accent-plum);font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}.remediation-step-label{display:block;color:var(--muted);font-size:.78rem;font-weight:600;margin-bottom:4px}.remediation-start p{font-size:1.08rem;font-weight:600;margin:0}.technical-values{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:12px}.technical-values>span{font-size:.78rem;color:var(--muted);margin-right:2px}.technical-values code,html body .inline-code{display:inline-block;border:1px solid var(--accent-blue);border-radius:5px;background:var(--cream);color:var(--ink);padding:1px 5px;font-weight:600}.remediation-card h4{color:var(--accent-plum)}
-.component-badge,.page-count-badge{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.04em;padding:3px 8px;border-radius:9999px;color:var(--ink);white-space:nowrap}.component-badge{border:1px solid var(--accent-orange);background:var(--accent-orange-soft);text-transform:uppercase}.page-count-badge{border:1px solid var(--accent-blue);background:var(--accent-blue-soft)}.common-pages>p{color:rgba(28,28,28,.82)}.common-pages ul{display:grid;gap:8px;margin:0;padding:0;list-style:none}.common-pages li{border:1px solid var(--border);border-radius:8px;background:var(--accent-blue-soft);padding:11px 13px}.common-pages li a,.common-pages li span{display:block;overflow-wrap:anywhere}.common-pages li span{margin-top:4px;font-size:.82rem;color:var(--muted)}
-.component-groups{border:1px solid var(--border);border-radius:16px;padding:24px;margin:32px 0;background:var(--accent-orange-soft)}.component-groups-heading{display:flex;justify-content:space-between;gap:20px;align-items:start}.component-groups-heading h2{margin:4px 0 6px}.component-groups-heading p{margin:0}.component-group-report{border-top:1px solid var(--border);padding-top:20px;margin-top:20px}.component-group-kicker{display:flex;gap:8px;flex-wrap:wrap}.group-count-badge,.applies-badge{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.04em;padding:3px 8px;border:1px solid var(--accent-green);border-radius:9999px;background:var(--accent-green-soft);color:var(--ink)}.shared-corrections article{border:1px solid var(--accent-green);border-radius:8px;background:var(--accent-green-soft);padding:12px;margin-top:8px}.shared-corrections article p{margin:7px 0 0}.component-group-report>ol>li{margin:10px 0}.component-group-report>ol code{display:block;margin-top:3px;color:var(--muted)}
-:root{--accent-plum:#ab307e;--accent-blue:#6495ed;--accent-green:#2f7d5a;--accent-orange:#9a4e12;--accent-plum-soft:rgba(171,48,126,.10);--accent-blue-soft:rgba(100,149,237,.14);--accent-green-soft:rgba(47,125,90,.12);--accent-orange-soft:rgba(154,78,18,.12)}
-html body button:focus,html body a:focus{box-shadow:0 0 0 2px rgba(100,149,237,.68),rgba(0,0,0,.1) 0 4px 12px}.finding .badge.critical,.finding-index .badge.critical{background:var(--accent-plum)}.finding .badge.serious,.finding-index .badge.serious{background:var(--accent-orange);color:var(--off-white)}.finding .badge.moderate,.finding-index .badge.moderate{background:var(--accent-blue-soft);border:1px solid var(--accent-blue);color:var(--ink)}.wcag-level-badge{display:inline-block;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:3px 8px;border:1px solid var(--accent-green);border-radius:9999px;color:var(--ink);background:var(--accent-green-soft);white-space:nowrap}.finding-kicker,.finding-index a{flex-wrap:wrap}.filter-groups{display:flex;align-items:start;gap:32px;flex-wrap:wrap;margin:32px 0 24px}.filter-group-label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:6px}.filter-group .filters{margin:0}html body .level-filters button[aria-pressed=true]{background:var(--accent-green);border-color:var(--accent-green);color:var(--off-white)}.finding .report-section{position:relative;border-top:0;padding-top:32px;margin-top:32px}.finding .report-section::before{content:"";position:absolute;inset:0 0 auto;height:2px;background:linear-gradient(90deg,var(--accent-plum) 0,var(--accent-blue) 32%,var(--border) 72%)}.finding .standards-card{background:var(--accent-blue-soft);border-color:var(--accent-blue)}.finding .wcag-links a{border-color:var(--accent-blue);background:var(--cream)}.contrast-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.contrast-grid>div{border:1px solid var(--border);border-radius:8px;background:var(--accent-blue-soft);padding:12px;min-width:0}.contrast-grid code{overflow-wrap:anywhere}.manual-review{border:1px solid var(--border);border-radius:16px;padding:24px;margin:32px 0;background:var(--accent-green-soft)}.manual-heading{display:flex;justify-content:space-between;gap:24px;align-items:start}.manual-heading h2{margin:4px 0 6px}.manual-heading p{margin:0;max-width:760px}.manual-list{padding-left:0;list-style:none}.manual-check{border-top:1px solid var(--border);padding:18px 0}.manual-check-heading{display:flex;gap:10px;align-items:center}.manual-check>p{margin:7px 0}.category{font-size:.72rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase}.manual-status-summary{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.manual-status{display:inline-block;border:1px solid var(--border);border-radius:9999px;padding:3px 8px;font-size:.72rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}.manual-status.pass{border-color:var(--accent-green);background:var(--accent-green-soft)}.manual-status.needs-attention{border-color:var(--accent-orange);background:var(--accent-orange-soft)}.manual-status.not-tested{border-color:var(--accent-plum);background:var(--accent-plum-soft)}.manual-status.not-applicable{border-color:var(--accent-blue);background:var(--accent-blue-soft)}.manual-evidence,.reviewer-notes{border:1px solid var(--accent-blue);border-radius:8px;background:var(--cream);padding:12px 14px;margin:12px 0}.manual-evidence p,.reviewer-notes p{margin:4px 0 0;white-space:pre-wrap}
-.badge,.wcag-level-badge,.component-badge,.page-count-badge,.group-count-badge,.applies-badge,.todo-badge{font-size:.62rem;padding:2px 6px;line-height:1.25}.issue-category-badge{display:inline-block;border:1px solid var(--accent-blue);border-radius:9999px;background:var(--accent-blue-soft);color:var(--ink);font-size:.62rem;font-weight:700;letter-spacing:.04em;line-height:1.25;padding:2px 6px;text-transform:uppercase;white-space:nowrap}.issue-category-badge.category-color{border-color:var(--accent-plum);background:var(--accent-plum-soft)}.issue-category-badge.category-aria,.issue-category-badge.category-navigation{border-color:var(--accent-orange);background:var(--accent-orange-soft)}.issue-category-badge.category-structure,.issue-category-badge.category-keyboard,.issue-category-badge.category-forms{border-color:var(--accent-green);background:var(--accent-green-soft)}.agent-prompt-section{border:1px solid var(--accent-blue);border-left:5px solid var(--accent-plum);border-radius:10px;background:linear-gradient(120deg,var(--accent-plum-soft),var(--accent-blue-soft));padding:18px!important}.agent-prompt-section::before{display:none}.agent-prompt-section pre{max-height:420px}.finding-review-summary{display:flex;justify-content:space-between;gap:24px;align-items:center;border:1px solid var(--border);border-radius:16px;background:var(--accent-blue-soft);padding:20px;margin:32px 0}.finding-review-summary h2{margin:3px 0}.finding-review-summary p{margin:0}.finding-review-totals{display:flex;gap:7px;flex-wrap:wrap}.finding-review-status{display:inline-block;border:1px solid var(--border);border-radius:9999px;padding:2px 6px;font-size:.62rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;color:var(--ink)}.finding-review-status.unreviewed{border-color:var(--ink-40);background:var(--ink-4)}.finding-review-status.action-required{border-color:var(--accent-orange);background:var(--accent-orange-soft)}.finding-review-status.accepted-risk{border-color:var(--accent-blue);background:var(--accent-blue-soft)}.finding-review-status.false-positive{border-color:var(--accent-green);background:var(--accent-green-soft)}.finding-review-notes{border:1px solid var(--accent-blue);border-radius:8px;background:var(--cream);padding:12px 14px}.finding-review-notes p{margin:4px 0 0;white-space:pre-wrap}
-.filters button,.report-shot,.report-shot img,.dialog-close,.finding-index a,.target a,.location-link,.source-url,.scanner-link,.report-section a,.manual-review a,.manual-check label{transition:background-color .14s ease,border-color .14s ease,box-shadow .14s ease,transform .14s ease,text-decoration-thickness .14s ease,text-underline-offset .14s ease}@media(hover:hover){.filters button:hover:not([aria-pressed=true]),.dialog-close:hover{border-color:var(--accent-blue);background:var(--accent-blue-soft);box-shadow:0 2px 7px rgba(28,28,28,.08);transform:translateY(-1px)}.report-shot:hover{border-color:var(--accent-plum);box-shadow:0 4px 12px rgba(28,28,28,.12);transform:translateY(-1px)}.report-shot:hover img{transform:scale(1.01)}.finding-index a:hover,.target a:hover,.location-link:hover,.source-url:hover,.scanner-link:hover,.report-section a:hover,.manual-review a:hover{text-decoration-thickness:2px;text-underline-offset:3px}.wcag-links a:hover{border-color:var(--accent-blue);background:var(--accent-blue-soft)}.manual-check label:hover strong{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}}.filters button:active,.dialog-close:active{transform:translateY(0);box-shadow:none}@media(prefers-reduced-motion:reduce){.filters button,.report-shot,.report-shot img,.dialog-close,.finding-index a,.target a,.location-link,.source-url,.scanner-link,.report-section a,.manual-review a,.manual-check label{transition:none!important}.filters button:hover,.report-shot:hover,.report-shot:hover img,.dialog-close:hover{transform:none!important}}
-:root{font-family:"Camera Plain Variable",ui-sans-serif,system-ui,sans-serif;color:#1c1c1c;background:#f7f4ed;line-height:1.5;--ink:#1c1c1c;--muted:#5f5f5d;--border:#eceae4;--cream:#f7f4ed;--off-white:#fcfbf8}*{box-sizing:border-box}html{scroll-behavior:smooth}body{max-width:1200px;margin:auto;padding:64px 24px 96px;background:var(--cream)}header{margin-bottom:48px}header .eyebrow{color:var(--muted);font-size:.875rem}h1{font-size:clamp(2.25rem,6vw,3.75rem);font-weight:600;line-height:1.03;letter-spacing:-1.5px;margin:.5rem 0 1rem}.target{font-size:1.13rem;color:rgba(28,28,28,.82);overflow-wrap:anywhere}.target a,.finding-index a,.location-link,.source-url,.scanner-link,.report-section a,.manual-review a{color:var(--ink);text-decoration:underline}.summary{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:12px;margin:32px 0}.metric{border:1px solid var(--border);border-radius:12px;padding:18px;background:rgba(28,28,28,.03)}.metric strong{display:block;font-size:3rem;font-weight:600;letter-spacing:-1.2px;line-height:1}.metric span{color:var(--muted);font-size:.875rem}.notice{border:1px solid var(--border);padding:12px 15px;background:rgba(28,28,28,.03);border-radius:8px;color:rgba(28,28,28,.82)}.filters{display:flex;gap:8px;flex-wrap:wrap;margin:32px 0 24px}.filters button{padding:8px 16px;border:1px solid rgba(28,28,28,.4);background:transparent;color:var(--ink);border-radius:9999px;cursor:pointer;font:inherit}.filters button[aria-pressed=true]{background:var(--ink);color:var(--off-white)}button:focus,a:focus,input:focus{outline:0;box-shadow:0 0 0 2px rgba(59,130,246,.5),rgba(0,0,0,.1) 0 4px 12px}code,pre,.selector{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}.inline-code{font-size:.92em;background:rgba(28,28,28,.04);border-radius:4px;padding:1px 4px}.finding-index{border:1px solid var(--border);border-radius:16px;padding:20px;margin:24px 0}.finding-index h2{font-size:1.25rem;font-weight:400;margin:0 0 12px}.finding-index ol{columns:2;column-gap:32px;margin:0;padding-left:24px}.finding-index li{break-inside:avoid;margin:8px 0}.finding-index a{display:inline-flex;align-items:center;gap:8px}.finding{border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px;scroll-margin-top:16px}.finding-header{margin:0}.finding-kicker{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.875rem;margin-bottom:10px}.finding h2{font-size:2.25rem;font-weight:600;line-height:1.08;letter-spacing:-.9px;margin:0}.finding h3{font-size:1.25rem;font-weight:400;margin:0 0 12px}.finding h4{font-size:1rem;font-weight:600;margin:16px 0 4px}.badge{font-size:.72rem;font-weight:600;text-transform:uppercase;padding:4px 8px;border-radius:9999px;color:var(--off-white);background:rgba(28,28,28,.4)}.badge.critical{background:var(--ink)}.badge.serious{background:rgba(28,28,28,.83)}.badge.moderate{background:rgba(28,28,28,.4);color:var(--ink)}.badge.minor{background:rgba(28,28,28,.04);color:var(--ink);border:1px solid var(--border)}.report-section{border-top:1px solid var(--border);padding-top:24px;margin-top:24px}.meta-grid,.location-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.meta-card,.location-card{border:1px solid var(--border);border-radius:8px;background:rgba(28,28,28,.03);padding:14px;min-width:0}.standards-card{border-color:rgba(28,28,28,.4)}.meta-label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:5px}.meta-help{font-size:.82rem;color:var(--muted);margin:5px 0 0}.wcag-links{display:flex;gap:6px;flex-wrap:wrap}.wcag-links a{display:inline-block;border:1px solid rgba(28,28,28,.4);border-radius:9999px;padding:3px 9px;background:var(--cream)}.scanner-link{display:block;font-size:.82rem;margin-top:6px}.location-link,.source-url{display:block;overflow-wrap:anywhere}.source-url{font-size:.82rem;color:var(--muted);margin-top:5px}.selector{display:block;background:rgba(28,28,28,.04);padding:8px 10px;border-radius:6px;overflow-wrap:anywhere}pre{white-space:pre-wrap;background:var(--ink);color:var(--off-white);padding:14px;border-radius:8px;overflow:auto;font-size:.82rem}.review-note{border:1px solid var(--border);border-radius:8px;background:rgba(28,28,28,.03);padding:12px;color:rgba(28,28,28,.82)}.remediation-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}.remediation-card{border:1px solid var(--border);border-radius:8px;background:rgba(28,28,28,.03);padding:14px}.remediation-card h4{margin:0 0 8px}.remediation-card ul{margin:0;padding-left:20px}.remediation-card li{margin:7px 0}.code-compare{display:grid;grid-template-columns:1fr 1fr;gap:12px}.code-label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:6px}.report-shot{display:block;width:min(100%,540px);border:1px solid var(--border);border-radius:12px;padding:0;background:transparent;overflow:hidden;cursor:zoom-in}.report-shot img{display:block;width:100%;height:auto;max-height:280px;object-fit:cover;object-position:top;border:0}.report-shot span{display:block;padding:8px;color:var(--muted)}figure{margin:14px 0 0}figcaption{font-size:.875rem;color:var(--muted);margin-top:8px;max-width:540px}.safe-fix{border-left:3px solid var(--ink);padding-left:.75rem}.image-dialog{width:min(96vw,1500px);max-width:none;border:1px solid var(--border);border-radius:16px;background:var(--cream);padding:14px}.image-dialog::backdrop{background:rgba(28,28,28,.78)}.dialog-bar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:10px}.dialog-close{border:1px solid rgba(28,28,28,.4);border-radius:6px;background:transparent;padding:8px 16px;font:inherit}.image-dialog img{display:block;width:100%;max-height:86vh;object-fit:contain;border:1px solid var(--border);border-radius:12px}.hidden{display:none}@media(max-width:800px){.summary{grid-template-columns:repeat(2,1fr)}.meta-grid,.location-grid,.code-compare,.contrast-grid,.remediation-grid{grid-template-columns:1fr}.finding-index ol{columns:1}.manual-heading{display:block}}@media(max-width:600px){body{padding:40px 14px}h1,.finding h2{font-size:2.25rem;letter-spacing:-.9px}.metric strong{font-size:2.25rem}}</style></head>
-<body><style>.summary{grid-template-columns:repeat(8,minmax(110px,1fr))}.issue-cluster-report{border:1px solid var(--accent-orange);border-radius:10px;background:var(--cream);padding:16px;margin-top:14px}.issue-cluster-report h4{margin:8px 0}.issue-cluster-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px}.issue-cluster-summary p,.issue-owner-report{border:1px solid var(--border);border-radius:8px;background:var(--accent-orange-soft);padding:12px}.issue-cluster-summary strong{display:block;font-size:.75rem;text-transform:uppercase;margin-bottom:5px}.issue-owner-report{border-color:var(--accent-green);background:var(--accent-green-soft)}.issue-owner-report h5{margin:0 0 8px}.issue-owner-report pre{max-height:180px}.issue-cluster-report details{margin-top:12px}.issue-cluster-report summary{cursor:pointer;font-weight:700}.issue-cluster-report details li{margin:10px 0}@media(max-width:700px){.issue-cluster-summary{grid-template-columns:1fr}}</style><header><div class="eyebrow">ADA Assistant · Accessibility report</div><h1>Findings in context.</h1><p class="target"><strong>Internet source:</strong> ${result.metadata.target.startsWith("http") ? `<a href="${escapeHtml(result.metadata.target)}" target="_blank" rel="noopener noreferrer">${escapeHtml(result.metadata.target)}</a>` : escapeHtml(result.metadata.target)}</p>${wcagTargetText(result) ? `<p><strong>Conformance target:</strong> ${escapeHtml(wcagTargetText(result)!)}</p>` : ""}${scanProfileText(result) ? `<p><strong>Saved scan profile:</strong> ${escapeHtml(scanProfileText(result)!)}</p>` : ""}<p>Scanned ${result.metadata.pagesOrFilesScanned} page(s) and opened ${interactionSummary(result)}. Generated ${escapeHtml(result.metadata.completedAt)}.</p></header>
-<style>.badge,.wcag-level-badge,.component-badge,.page-count-badge,.group-count-badge,.applies-badge,.todo-badge{font-size:.62rem!important;padding:2px 6px!important;line-height:1.25}</style>
-<section class="summary" aria-label="Finding totals"><div class="metric"><strong>${result.findings.length}</strong><span>Unique findings</span></div><div class="metric"><strong>${result.metadata.findingOccurrences ?? result.findings.length}</strong><span>Occurrences</span></div><div class="metric"><strong>${result.metadata.interactionStatesScanned ?? 0}</strong><span>States opened</span></div><div class="metric"><strong>${result.metadata.interactionStateFailures?.length ?? 0}</strong><span>States skipped</span></div><div class="metric"><strong>${counts.critical}</strong><span>Critical</span></div><div class="metric"><strong>${counts.serious}</strong><span>Serious</span></div><div class="metric"><strong>${counts.moderate}</strong><span>Moderate</span></div><div class="metric"><strong>${counts.minor}</strong><span>Minor</span></div></section>
-<p class="notice">${escapeHtml(result.notice)}</p>
+<style>${sharedCss}${REPORT_CSS}</style></head>
+<body class="detail">
+<header class="report-head"><p class="muted">ADA Assistant · Accessibility report</p><h1>Findings in context</h1><p class="target">${metadata.target.startsWith("http") ? link(metadata.target, metadata.target) : escapeHtml(metadata.target)}</p><p>${totals}</p>${scanProfileText(result) ? `<p class="muted">Saved scan profile: ${escapeHtml(scanProfileText(result)!)}</p>` : ""}<p class="notice">${escapeHtml(result.notice)}</p></header>
 ${incomplete}
-${skippedAssets}
 ${interactionFailures}
-${findingReviewSummary}
-${manualChecklist}
-${componentGroups}
-<div class="filter-groups"><div class="filter-group"><span class="filter-group-label" id="report-severity-label">Impact severity</span><nav class="filters" aria-labelledby="report-severity-label"><button data-severity-filter="all" aria-pressed="true">All</button><button data-severity-filter="critical" aria-pressed="false">Critical</button><button data-severity-filter="serious" aria-pressed="false">Serious</button><button data-severity-filter="moderate" aria-pressed="false">Moderate</button><button data-severity-filter="minor" aria-pressed="false">Minor</button></nav></div><div class="filter-group"><span class="filter-group-label" id="report-level-label">WCAG level</span><nav class="filters level-filters" aria-labelledby="report-level-label"><button data-level-filter="all" aria-pressed="true">All levels</button><button data-level-filter="A" aria-pressed="false">A</button><button data-level-filter="AA" aria-pressed="false">AA</button><button data-level-filter="AAA" aria-pressed="false">AAA</button></nav></div><div class="filter-group"><span class="filter-group-label" id="report-disposition-label">Review disposition</span><nav class="filters" aria-labelledby="report-disposition-label"><button data-disposition-filter="all" aria-pressed="true">All</button><button data-disposition-filter="unreviewed" aria-pressed="false">Unreviewed</button><button data-disposition-filter="action-required" aria-pressed="false">Action required</button><button data-disposition-filter="accepted-risk" aria-pressed="false">Accepted risk</button><button data-disposition-filter="false-positive" aria-pressed="false">False positive</button></nav></div></div>
-${findingIndex}
-<main>${result.findings.map((finding) => findingCard(finding, result)).join("\n") || "<p>No automated findings were detected. Manual testing is still required.</p>"}</main>
-<dialog class="image-dialog" id="image-dialog"><div class="dialog-bar"><strong id="dialog-title">Visual evidence</strong><button class="dialog-close" id="dialog-close" type="button">Close</button></div><img id="dialog-image" alt=""></dialog><script>const dialog=document.getElementById('image-dialog');const dialogImage=document.getElementById('dialog-image');let activeSeverity='all';let activeLevel='all';let activeDisposition='all';function applyFilters(){document.querySelectorAll('.finding,.finding-index li').forEach(item=>{const severityMatches=activeSeverity==='all'||item.dataset.severity===activeSeverity;const levelMatches=activeLevel==='all'||item.dataset.level===activeLevel;const dispositionMatches=activeDisposition==='all'||item.dataset.disposition===activeDisposition;item.classList.toggle('hidden',!severityMatches||!levelMatches||!dispositionMatches);});}document.querySelectorAll('[data-severity-filter]').forEach(button=>button.addEventListener('click',()=>{activeSeverity=button.dataset.severityFilter;document.querySelectorAll('[data-severity-filter]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));applyFilters();}));document.querySelectorAll('[data-level-filter]').forEach(button=>button.addEventListener('click',()=>{activeLevel=button.dataset.levelFilter;document.querySelectorAll('[data-level-filter]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));applyFilters();}));document.querySelectorAll('[data-disposition-filter]').forEach(button=>button.addEventListener('click',()=>{activeDisposition=button.dataset.dispositionFilter;document.querySelectorAll('[data-disposition-filter]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));applyFilters();}));document.querySelectorAll('.report-shot').forEach(button=>button.addEventListener('click',()=>{const image=button.querySelector('img');dialogImage.src=image.src;dialogImage.alt=image.alt;document.getElementById('dialog-title').textContent=button.getAttribute('aria-label');dialog.showModal();}));document.getElementById('dialog-close').addEventListener('click',()=>dialog.close());dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});</script></body></html>`;
+${skippedAssets}
+<main>
+<section aria-labelledby="findings-heading"><h2 class="section-title" id="findings-heading">Findings</h2>${reviewSummary ? `<p>Automated finding review: ${reviewSummary}. A review disposition records a human decision and does not change whether the scan reports the finding.</p>` : ""}${filtersHtml(result)}${findingIndex}</section>
+${componentGroupsHtml(result, groups)}
+${result.findings.map((finding) => findingCard(finding, result)).join("\n")}
+${manualChecklistHtml(result)}
+</main>
+<dialog class="image-dialog" id="image-dialog" aria-labelledby="dialog-title"><div class="dialog-bar"><strong id="dialog-title">Visual evidence</strong><button class="btn" id="dialog-close" type="button">Close</button></div><img id="dialog-image" alt=""></dialog>
+<script>
+const dialog=document.getElementById('image-dialog');const dialogImage=document.getElementById('dialog-image');
+const active={severity:'all',level:'all',disposition:'all'};const kinds=Object.keys(active);
+function applyFilters(){document.querySelectorAll('.finding[data-severity],.index li').forEach(item=>{item.classList.toggle('hidden',kinds.some(kind=>active[kind]!=='all'&&item.dataset[kind]!==active[kind]));});}
+kinds.forEach(kind=>{const buttons=document.querySelectorAll('[data-'+kind+'-filter]');buttons.forEach(button=>button.addEventListener('click',()=>{active[kind]=button.dataset[kind+'Filter'];buttons.forEach(item=>item.setAttribute('aria-pressed',String(item===button)));applyFilters();}));});
+document.querySelectorAll('.shot').forEach(button=>button.addEventListener('click',()=>{const image=button.querySelector('img');dialogImage.src=image.src;dialogImage.alt=image.alt;document.getElementById('dialog-title').textContent=button.getAttribute('aria-label');dialog.showModal();}));
+document.getElementById('dialog-close').addEventListener('click',()=>dialog.close());
+dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
+document.querySelectorAll('[data-copy]').forEach(button=>button.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(button.previousElementSibling.textContent);button.textContent='Copied';}catch{button.textContent='Copy failed. Select the prompt text instead.';}setTimeout(()=>{button.textContent='Copy AI prompt';},1600);}));
+// Collapsed sections would be left out of a printout, so open them all before printing.
+window.addEventListener('beforeprint',()=>document.querySelectorAll('details').forEach(item=>{item.open=true;}));
+</script></body></html>`;
 }
 
 export function sarifReport(result: ScanResult): string {
