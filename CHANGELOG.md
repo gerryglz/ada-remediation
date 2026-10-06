@@ -16,6 +16,8 @@ All notable changes to this project will be documented in this file.
 - Downloadable HTML report redesigned to match the dashboard, sharing its style sheet. Report totals, filters, and review dispositions are text and chips instead of metric tiles and badges.
 - Review dispositions and notes are recorded per finding or per component through one **Review** dropdown, and manual tasks use one **Outcome** dropdown. The sidebar keeps a single severity filter; the WCAG-level and review filters are removed.
 
+- Run notices (pages that could not be tested, skipped interactive states, skipped assets) are one collapsed line each, and the totals state failed pages next to tested pages.
+- A component with a single issue shows that issue directly instead of nesting it in a card, and no longer repeats its guidance as shared corrections. Zero comparison counts and the header subtitle are removed.
 - Reviewer notes save when their field loses focus, so the **Save review** button is gone. Unsaved notes are also sent when the page closes.
 - The scan button reads **Scan site** while crawling is on, the URL field no longer starts with a prefilled address, and the dashboard has a skip link.
 

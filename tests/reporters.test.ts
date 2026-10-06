@@ -136,7 +136,7 @@ describe("reporters", () => {
     expect(html).toContain("Issue sets and affected elements");
     expect(html).toContain("Likely shared owner");
     expect(html).toContain("ul.primary-menu");
-    expect(html).toContain("Applies to 2 findings.");
+    expect(html).not.toContain("Applies to 2 findings.");
     expect(html).toContain("Second affected page");
     expect(html).toContain("2 total occurrences");
     expect(html).toContain("Why this was flagged");
@@ -201,7 +201,10 @@ describe("reporters", () => {
     expect(() => new Function(dashboardScript)).not.toThrow();
     expect(html).toContain("id=\"scan-form\"");
     expect(html).toContain('class="app-header"');
-    expect(html).toContain("Accessibility audit workspace");
+    expect(html).not.toContain("Accessibility audit workspace");
+    expect(html).toContain("' could not be tested'");
+    expect(html).toContain("'page failed','pages failed'");
+    expect(html).toContain("function mixedComparison()");
     expect(html).toContain('id="scan-toggle"');
     expect(html).toContain('aria-controls="scan-panel"');
     expect(html).toContain('id="scan-panel"');
@@ -233,7 +236,7 @@ describe("reporters", () => {
     expect(html).not.toContain("Before and suggested after");
     expect(html).not.toContain("Suggested after — starting point");
     expect(html).toContain("Expected parent roles");
-    expect(html).toContain("el('p','roles','Expected parent roles: ')");
+    expect(html).toContain("' · Expected parent roles: '");
     expect(html).toContain("rel=\"icon\"");
     expect(html).toContain("data:image/svg+xml");
     expect(html).toContain("--mono:ui-monospace");

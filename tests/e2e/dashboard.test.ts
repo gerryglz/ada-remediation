@@ -175,7 +175,7 @@ describe("dashboard reviewer workflow", () => {
     await page.locator("#results:not([hidden])").waitFor({ timeout: 60_000 });
     await expect(page.locator('#summary [data-stat="new"]').textContent()).resolves.toBe("0");
     await expect(page.locator('#summary [data-stat="existing"]').textContent()).resolves.toBe(String(report.findings.length));
-    await expect(page.locator("#finding-detail .meta").first().textContent()).resolves.toMatch(/existing/i);
+    await expect(page.locator("#finding-detail .meta").first().textContent(), "per-item comparison words appear only when a run mixes new and existing findings").resolves.not.toMatch(/existing/i);
     await expect(page.locator("#finding-list .row").filter({ hasText: "Action required" }).count()).resolves.toBeGreaterThan(0);
 
     await page.getByRole("button", { name: "Scan history" }).click();
